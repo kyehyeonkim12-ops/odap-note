@@ -1,0 +1,9 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">오답 노트</string>
+    <string name="title_activity_main">오답 노트</string>
+    <string name="package_name">com.odapnote.app</string>
+    <string name="custom_url_scheme">com.odapnote.app</string>
+    <string name="block_service_label">오답 노트 앱 차단</string>
+    <string name="block_service_desc">순공 타이머가 켜져 있는 동안 고른 앱을 열면 오답 노트로 돌아오게 해요. 화면 내용은 읽지 않고, 지금 열린 앱 이름만 확인해요.</string>
+</resources>

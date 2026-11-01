@@ -1,0 +1,54 @@
+rules_version = '2';
+// 오답 노트 보안 규칙
+// - 학생: 자기 기록(sid == 내 uid)만 읽고 쓴다.
+// - 코치: 자기가 만든 반(classId)의 학생 기록을 읽고, 오답에는 코멘트만 쓸 수 있다.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function myClassId() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.classId; }
+    function isCoachOf(cid) {
+      return signedIn() && cid is string && cid != ''
+        && get(/databases/$(database)/documents/classes/$(cid)).data.coachUid == request.auth.uid;
+    }
+    function own(d) { return signedIn() && d.sid == request.auth.uid; }
+    function validNew() { return own(request.resource.data) && request.resource.data.classId == myClassId(); }
+    function sameOwner() { return request.resource.data.sid == resource.data.sid && request.resource.data.classId == resource.data.classId; }
+
+    // 반: 반 코드로 찾아 들어가야 해서 로그인한 사람은 읽을 수 있다.
+    match /classes/{cid} {
+      allow read: if signedIn();
+      allow create: if signedIn() && request.resource.data.coachUid == request.auth.uid;
+      allow update, delete: if signedIn() && resource.data.coachUid == request.auth.uid
+        && request.resource.data.coachUid == request.auth.uid;
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isCoachOf(resource.data.classId));
+      allow create: if signedIn() && request.auth.uid == uid
+        && request.resource.data.role in ['student', 'coach'];
+      allow update: if signedIn() && request.auth.uid == uid
+        && request.resource.data.role == resource.data.role;
+    }
+
+    match /entries/{id} {
+      allow read: if own(resource.data) || isCoachOf(resource.data.classId);
+      allow create: if validNew();
+      allow update: if (own(resource.data) && sameOwner())
+        || (isCoachOf(resource.data.classId) && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['comment']));
+      allow delete: if own(resource.data);
+    }
+
+    match /tasks/{id} {
+      allow read: if own(resource.data) || isCoachOf(resource.data.classId);
+      allow create: if validNew();
+      allow update: if own(resource.data) && sameOwner();
+      allow delete: if own(resource.data);
+    }
+
+    match /sessions/{id} {
+      allow read: if own(resource.data) || isCoachOf(resource.data.classId);
+      allow create: if validNew();
+      allow update, delete: if own(resource.data) && (request.method == 'delete' || sameOwner());
+    }
+  }
+}

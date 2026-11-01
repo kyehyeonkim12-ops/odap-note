@@ -1,0 +1,6 @@
+{
+  "appId": "com.odapnote.app",
+  "appName": "오답 노트",
+  "webDir": "www",
+  "android": { "backgroundColor": "#1F4BFF" }
+}
