@@ -682,7 +682,7 @@ let wake = null;
 async function keepAwake() { try { if (navigator.wakeLock && T && !T.pausedAt) wake = await navigator.wakeLock.request('screen'); } catch (e) { wake = null; } }
 function releaseAwake() { try { wake?.release(); } catch (e) {} wake = null; }
 document.addEventListener('visibilitychange', () => {
-  if (!T || T.pausedAt) return;
+  if (!T || T.pausedAt || window.ODAP_NO_AWAY) return; // 앱은 이탈을 세지 않고 잠금으로 되돌린다
   if (document.hidden) { T.hiddenAt = Date.now(); saveT(); }
   else if (T.hiddenAt) { backFromAway(); keepAwake(); render(); }
 });
@@ -929,7 +929,7 @@ function studyView() {
       ${(() => { if (mineT) return mineT.taskId ? `<div class="tlink"><span class="lbl">연결된 할 일</span><span class="chip on">${esc(mineT.taskText || '')}</span></div>` : ''; const tl = tasksOn(S.sid, today()).filter(x => !x.done); return tl.length && !otherT ? `<div class="tlink"><span class="lbl">오늘 할 일과 연결 (선택)</span><button class="chip ${!S.tTask ? 'on' : ''}" data-ttask="">연결 안 함</button>${tl.map(x => `<button class="chip ${S.tTask === x.id ? 'on' : ''}" data-ttask="${esc(x.id)}">${esc(x.subj)} · ${esc(x.text)}</button>`).join('')}</div>` : ''; })()}
       <div class="tacts">${acts}</div>
       <div class="away"><div><span class="k">전체</span><span class="v">${hhmm(t.total)}</span></div><div><span class="k">이탈</span><span class="v ${t.away >= 60 ? 'warn' : ''}">${hhmm(t.away)}</span></div><div><span class="k">이탈 횟수</span><span class="v ${mineT && mineT.leaves ? 'warn' : ''}">${mineT ? mineT.leaves : 0}</span></div></div>
-      <div class="tip">${ICON.phone}<span><b>휴대폰 관리</b> · 공부하는 동안 이 화면을 켜 둔 채 폰을 엎어 두세요. 다른 앱을 열거나 화면이 꺼지면 <b>이탈</b>로 세고, 그 시간은 순공에서 빠져요.</span></div>
+      ${window.ODAP_EXTRA && window.ODAP_EXTRA.tip ? window.ODAP_EXTRA.tip() : `<div class="tip">${ICON.phone}<span><b>순공 타이머</b> · 공부하는 동안 이 화면을 켜 두세요.</span></div>`}
       ${S.tMsg ? `<div class="msg" role="status">${esc(S.tMsg)}</div>` : ''}
     </section>`;
   const side = `<div class="h"><h2>오늘 순공</h2><span class="aside">${fmt(today())}</span></div>
@@ -1386,6 +1386,8 @@ async function drawCanvas(file, max) {
 async function shrink(file, max, q) { let c = await drawCanvas(file, max), url = c.toDataURL('image/jpeg', q); while (url.length > 200000 && q > 0.3) { q -= 0.1; url = c.toDataURL('image/jpeg', q); } return url; }
 async function shrinkBlob(file, max, q) { const c = await drawCanvas(file, max); return new Promise(res => c.toBlob(res, 'image/jpeg', q)); }
 
+// 앱 레이어(fb.js)가 순공 중 되돌아왔을 때 타이머 화면을 띄우는 데 쓴다
+window.ODAP_GO = tab => { if (S.mode === 'student' && S.tab !== tab) { S.tab = tab; S.detail = null; window.scrollTo(0, 0); render(); } };
 render();
 </script>
 </body>

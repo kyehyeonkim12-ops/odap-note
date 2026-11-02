@@ -22,8 +22,11 @@ final class BlockStore {
         return new HashSet<>(prefs(c).getStringSet("packages", new HashSet<>()));
     }
 
-    static void set(Context c, boolean active, Set<String> packages) {
-        prefs(c).edit().putBoolean("active", active).putStringSet("packages", packages).apply();
+    /** "all": 오답 노트·전화 말고 전부 막기, "list": 고른 앱만 막기 */
+    static String mode(Context c) { return prefs(c).getString("mode", "all"); }
+
+    static void set(Context c, boolean active, Set<String> packages, String mode) {
+        prefs(c).edit().putBoolean("active", active).putStringSet("packages", packages).putString("mode", mode).apply();
     }
 
     private static String today() {

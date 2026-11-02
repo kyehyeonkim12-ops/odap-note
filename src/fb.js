@@ -64,12 +64,15 @@ const dbShim = {
   },
 };
 let readyResolve; const ready = new Promise(r => { readyResolve = r; });
+// 앱에서는 화면을 떠난 시간을 '이탈'로 빼지 않는다. 대신 잠금(BlockService)이 바로 되돌려 보낸다.
+window.ODAP_NO_AWAY = true;
 window.claude = { use: async k => (k === 'db' ? (await ready, dbShim) : null) };
 
 // ---------- 로그인 화면 ----------
 const css = document.createElement('style');
 css.textContent = `
   #modeSeg, .who { display: none !important; }
+  .away { display: none !important; }
   .acct { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin-top: 10px; font-size: 12.5px; color: var(--ink-2); }
   .acct b { color: var(--ink); }
   .acct .code { font-weight: 700; color: var(--blue); letter-spacing: .08em; }
@@ -276,7 +279,8 @@ onAuthStateChanged(auth, async user => {
 // ---------- 앱 차단 (안드로이드) ----------
 const native = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
 const Blocker = native ? registerPlugin('AppBlocker') : null;
-const AB = { enabled: false, apps: null, picking: false, stats: 0, sel: loadSel() };
+const AB = { enabled: false, apps: null, picking: false, stats: 0, sel: loadSel(), mode: loadMode() };
+function loadMode() { try { return localStorage.getItem('odap-block-mode') === 'list' ? 'list' : 'all'; } catch (e) { return 'all'; } }
 // ---------- 처음 켤 때 접근성 권한 안내 ----------
 // 안드로이드 13부터는 스토어 밖에서 설치한 앱의 접근성 권한을 '제한된 설정'으로 막는다.
 // 그래서 ① 앱 정보 → ⋮ → 제한된 설정 허용 ② 접근성 → 오답 노트 앱 차단 켜기 순서로 안내한다.
@@ -322,14 +326,23 @@ window.ODAP_EXTRA = {
   studyPanel() {
     if (!Blocker) return '';
     const names = AB.sel.map(p => (AB.apps || []).find(a => a.package === p)?.label || p.split('.').pop());
-    return `<div class="h"><h2>앱 차단</h2><span class="aside">${AB.stats ? `오늘 ${AB.stats}번 막았어요` : '순공 중에만 작동'}</span></div>
+    const list = AB.mode === 'list';
+    return `<div class="h"><h2>잠금</h2><span class="aside">${AB.stats ? `오늘 ${AB.stats}번 되돌렸어요` : '순공 중에만 작동'}</span></div>
       <div class="box win ab" style="margin-top:0">
-        <div class="row"><span class="st ${AB.enabled ? '' : 'off'}">권한 <b>${AB.enabled ? '켜짐' : '꺼짐'}</b></span>${AB.enabled ? '' : '<button class="btn solid" data-ab="perm">접근성 권한 켜기</button>'}</div>
-        ${AB.enabled ? '' : '<p class="muted" style="margin:8px 0 0">설정 → 접근성 → 설치된 앱 → <b>오답 노트</b>를 켜 주세요. 순공 타이머가 돌아가는 동안 고른 앱을 열면 오답 노트로 돌아와요.</p>'}
-        <div class="apps">${names.length ? names.map((n, i) => `<span class="tg on">${esc(n)}</span>`).join('') : '<span class="muted">막을 앱을 골라 주세요.</span>'}</div>
+        <div class="row"><span class="st ${AB.enabled ? '' : 'off'}">권한 <b>${AB.enabled ? '켜짐' : '꺼짐'}</b></span>${AB.enabled ? '' : '<button class="btn solid" data-ab="perm">권한 켜기</button>'}</div>
+        <div class="roles" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:10px">
+          <button class="opt ${!list ? 'on' : ''}" data-ab="mode" data-v="all" style="justify-content:center">다른 앱 전부 막기</button>
+          <button class="opt ${list ? 'on' : ''}" data-ab="mode" data-v="list" style="justify-content:center">고른 앱만 막기</button>
+        </div>
+        <p class="muted" style="margin:8px 0 0">${list ? '고른 앱을 열면 바로 순공 화면으로 돌아와요.' : '홈 화면이나 다른 앱으로 나가면 바로 순공 화면으로 돌아와요. 전화는 받을 수 있어요.'} 폰을 써야 하면 <b>잠깐 멈춤</b>을 누르세요.</p>
+        ${list ? `<div class="apps">${names.length ? names.map(n => `<span class="tg on">${esc(n)}</span>`).join('') : '<span class="muted">막을 앱을 골라 주세요.</span>'}</div>
         <button class="btn line" style="width:100%;margin-top:10px" data-ab="pick">${AB.picking ? '다 골랐어요' : '막을 앱 고르기'}</button>
-        ${AB.picking ? `<div class="pick">${AB.apps ? AB.apps.map(a => `<button class="${AB.sel.includes(a.package) ? 'on' : ''}" data-ab="tog" data-p="${esc(a.package)}"><span class="ck">${CHECK}</span><span>${esc(a.label)}<small>${esc(a.package)}</small></span></button>`).join('') : '<p class="muted">앱 목록을 불러오는 중…</p>'}</div>` : ''}
+        ${AB.picking ? `<div class="pick">${AB.apps ? AB.apps.map(a => `<button class="${AB.sel.includes(a.package) ? 'on' : ''}" data-ab="tog" data-p="${esc(a.package)}"><span class="ck">${CHECK}</span><span>${esc(a.label)}<small>${esc(a.package)}</small></span></button>`).join('') : '<p class="muted">앱 목록을 불러오는 중…</p>'}</div>` : ''}` : ''}
       </div>`;
+  },
+  tip() {
+    if (!Blocker) return '';
+    return `<div class="tip"><svg viewBox="0 0 12 12" aria-hidden="true"><path fill="currentColor" d="M3 0h6v1H3zM2 1h1v10H2zM9 1h1v10H9zM3 11h6v1H3zM3 2h6v1H3zM3 9h6v1H3zM5 10h2v1H5z"/></svg><span><b>잠금</b> · 타이머가 돌아가는 동안 ${AB.mode === 'list' ? '고른 앱을' : '다른 앱을'} 열면 바로 이 화면으로 돌아와요. ${AB.enabled ? '' : '<b>아래 잠금 칸에서 권한을 먼저 켜 주세요.</b>'}</span></div>`;
   },
 };
 if (Blocker) {
@@ -345,11 +358,14 @@ if (Blocker) {
       if (AB.picking && !AB.apps) { try { AB.apps = (await Blocker.getApps()).apps.sort((x, y) => x.label.localeCompare(y.label, 'ko')); } catch (err) { AB.apps = []; } rerender(); }
       if (!AB.picking) syncActive(true);
     }
+    if (b.dataset.ab === 'mode') { AB.mode = b.dataset.v === 'list' ? 'list' : 'all'; try { localStorage.setItem('odap-block-mode', AB.mode); } catch (err) {} rerender(); syncActive(true); }
     if (b.dataset.ab === 'tog') { const p = b.dataset.p; AB.sel = AB.sel.includes(p) ? AB.sel.filter(x => x !== p) : [...AB.sel, p]; saveSel(); rerender(); }
   });
   CapApp.addListener('resume', async () => {
     await refreshAB();
     if (document.getElementById('perm')) { drawPerm(); if (AB.enabled) setTimeout(closePerm, 1500); }
+    // 순공 중에 돌아왔으면 바로 타이머 화면을 보여 준다
+    try { const t = JSON.parse(localStorage.getItem('odap-timer-v1')); if (t && !t.pausedAt && window.ODAP_GO) window.ODAP_GO('study'); } catch (err) {}
   });
   refreshAB();
   // 순공 타이머 상태를 보고 차단을 켜고 끈다
@@ -359,7 +375,7 @@ if (Blocker) {
     try { const t = JSON.parse(localStorage.getItem('odap-timer-v1')); on = !!(t && !t.pausedAt); } catch (e) {}
     if (on === last && !force) return;
     last = on;
-    try { await Blocker.setActive({ active: on, packages: AB.sel }); } catch (e) {}
+    try { await Blocker.setActive({ active: on, packages: AB.sel, mode: AB.mode }); } catch (e) {}
   }
   setInterval(syncActive, 1000);
 }

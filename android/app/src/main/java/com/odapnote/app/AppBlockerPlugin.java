@@ -59,7 +59,8 @@ public class AppBlockerPlugin extends Plugin {
                 return;
             }
         }
-        BlockStore.set(getContext(), active, pkgs);
+        String mode = "list".equals(call.getString("mode", "all")) ? "list" : "all";
+        BlockStore.set(getContext(), active, pkgs, mode);
         call.resolve();
     }
 
