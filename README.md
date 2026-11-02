@@ -14,6 +14,12 @@
 | `firestore.rules` | Firestore 보안 규칙 |
 | `.github/workflows/android.yml` | main에 올리면 APK를 만들어 Releases에 올림 |
 
+## 웹사이트
+
+https://kyehyeonkim12-ops.github.io/odap-note/ — 앱과 같은 화면·같은 계정·같은 기록을 써요. (잠금은 앱에서만 돼요)
+`main`에 올리면 GitHub Actions(`web.yml`)가 자동으로 다시 올려요.
+처음 한 번: 저장소 **Settings → Pages → Source**를 **GitHub Actions**로 바꿔야 해요.
+
 ## APK 받기
 
 `main` 브랜치에 올라가면 GitHub Actions가 APK를 만들어요.
