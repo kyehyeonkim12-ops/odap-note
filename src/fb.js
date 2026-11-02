@@ -5,6 +5,7 @@ import { initializeApp } from 'firebase/app';
 import {
   initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, onAuthStateChanged,
   signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, sendPasswordResetEmail,
+  EmailAuthProvider, reauthenticateWithCredential, updatePassword,
 } from 'firebase/auth';
 import {
   initializeFirestore, persistentLocalCache, collection, doc, getDoc, getDocs, setDoc, updateDoc,
@@ -99,6 +100,21 @@ css.textContent = `
   .pstep .btn { height: 36px; font-size: 13.5px; }
   .pstat { margin-top: 4px; padding: 10px 12px; background: #FDECEB; color: var(--err); font-size: 13px; font-weight: 700; }
   .pstat.on { background: var(--blue-w); color: var(--blue); }
+  .agree { display: grid; grid-template-columns: 26px 1fr; gap: 10px; align-items: center; width: 100%; text-align: left; border: 0; background: none; padding: 10px 0 0; font-size: 13.5px; color: var(--ink); }
+  .agree .ck { pointer-events: none; }
+  .agree.on .ck { background: var(--blue); border-color: var(--blue); }
+  .agree.on .ck svg { visibility: visible; }
+  .agree b { color: var(--blue); }
+  .kid { margin-top: 14px; padding: 12px; background: #FFF4E5; font-size: 13px; color: var(--ink-2); line-height: 1.55; }
+  .kid > b { color: var(--ink); }
+  .doclinks { display: flex; justify-content: center; gap: 14px; margin-top: 14px; }
+  .doclinks button { border: 0; background: none; padding: 0; font-size: 12px; color: var(--ink-3); text-decoration: underline; }
+  .docv { position: fixed; inset: 0; z-index: 60; background: rgba(17,17,20,.6); display: flex; align-items: center; justify-content: center; padding: 12px; }
+  .docv .win { width: 100%; max-width: 720px; height: 100%; max-height: 900px; display: flex; flex-direction: column; }
+  .docv .bar { display: flex; justify-content: flex-end; padding: 8px; border-bottom: 2px solid var(--ink); }
+  .docv .bar .btn { height: 32px; }
+  .docv iframe { flex: 1; border: 0; width: 100%; background: #fff; }
+  .toast { position: fixed; left: 50%; bottom: 90px; transform: translateX(-50%); z-index: 70; background: var(--ink); color: #fff; padding: 10px 16px; font-size: 13.5px; font-weight: 700; }
   .ab .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .ab .st { font-size: 13px; color: var(--ink-2); }
   .ab .st b { color: var(--blue); }
@@ -121,49 +137,80 @@ function gate(html) {
 }
 const brand = '<h1><mark>오답</mark>노트</h1>';
 function field(id, label, type = 'text', ph = '', extra = '') {
-  const birth = id === 'pw', tel = id === 'phone';
-  const attrs = birth ? 'inputmode="numeric" maxlength="6" pattern="[0-9]*" autocomplete="current-password"'
-    : tel ? 'inputmode="tel" maxlength="13" autocomplete="tel"'
-    : `autocomplete="${id === 'email' ? 'email' : 'off'}"`;
-  return `<label for="g-${id}">${label}</label><input class="tin" id="g-${id}" type="${birth ? 'password' : type}" ${attrs} placeholder="${ph}" value="${esc(G.f[id] || '')}">${extra}`;
+  const attrs = {
+    pw: 'type="password" autocomplete="current-password"',
+    npw: 'type="password" autocomplete="new-password"',
+    npw2: 'type="password" autocomplete="new-password"',
+    birth: 'type="text" inputmode="numeric" maxlength="6" pattern="[0-9]*" autocomplete="off"',
+    phone: 'type="tel" inputmode="tel" maxlength="13" autocomplete="tel"',
+    gphone: 'type="tel" inputmode="tel" maxlength="13" autocomplete="off"',
+    email: 'type="email" autocomplete="email"',
+  }[id] || `type="${type}" autocomplete="off"`;
+  return `<label for="g-${id}">${label}</label><input class="tin" id="g-${id}" ${attrs} placeholder="${ph}" value="${esc(G.f[id] || '')}">${extra}`;
 }
 function msgs() { return (G.msg ? `<div class="err" role="alert">${esc(G.msg)}</div>` : '') + (G.ok ? `<div class="ok" role="status">${esc(G.ok)}</div>` : ''); }
+// 생년월일 6자리(YYMMDD) → 만 나이. 만 14세 미만이면 보호자 동의를 받는다 (개인정보보호법 제22조의2)
+function ageOf(yymmdd) {
+  if (!/^\d{6}$/.test(yymmdd || '')) return null;
+  const now = new Date(), yy = +yymmdd.slice(0, 2), mm = +yymmdd.slice(2, 4), dd = +yymmdd.slice(4, 6);
+  if (mm < 1 || mm > 12 || dd < 1 || dd > 31) return null;
+  const year = yy > now.getFullYear() % 100 ? 1900 + yy : 2000 + yy;
+  let age = now.getFullYear() - year;
+  if (now.getMonth() + 1 < mm || (now.getMonth() + 1 === mm && now.getDate() < dd)) age--;
+  return age;
+}
+const okPw = v => typeof v === 'string' && v.length >= 8 && /[A-Za-z]/.test(v) && /\d/.test(v);
+const chk = (key, label) => `<button type="button" class="agree ${G[key] ? 'on' : ''}" data-g="tick" data-k="${key}" role="checkbox" aria-checked="${!!G[key]}"><span class="ck"><svg viewBox="0 0 12 12" aria-hidden="true"><path fill="currentColor" d="M1 6h2v2H1zM3 8h2v2H3zM5 6h2v2H5zM7 4h2v2H7zM9 2h2v2H9z"/></svg></span><span>${label}</span></button>`;
+const docLinks = '<div class="doclinks"><button data-g="doc" data-v="privacy.html">개인정보처리방침</button><button data-g="doc" data-v="licenses.html">오픈소스 라이선스</button></div>';
 const pickList = () => G.found && G.found.length > 1
   ? `<label>같은 이름의 선생님이 여러 명이에요. 내 선생님을 골라 주세요</label><div class="roles" style="grid-template-columns:1fr">${G.found.map(c => `<button class="opt" data-g="pick" data-id="${esc(c.id)}">${esc(c.name)} 선생님 · 전화 뒷자리 ${esc(c.code || '----')}</button>`).join('')}</div>` : '';
 function drawGate() {
   if (G.mode === 'login') {
     gate(`${brand}<p>반복되는 발상 놓침·실수를 모아 보는 공부 노트</p>
-      ${field('email', '이메일', 'email', 'you@example.com')}${field('pw', '생년월일 6자리', 'password', '예: 031301')}
+      ${field('email', '이메일', 'email', 'you@example.com')}${field('pw', '비밀번호', 'password', '처음에 생년월일로 가입했다면 생년월일 6자리')}
       <button class="bigbtn" data-g="login" ${G.busy ? 'disabled' : ''}>${G.busy ? '확인 중…' : '로그인'}</button>${msgs()}
-      <button class="alt" data-g="toSignup">처음이에요 · 회원가입</button>`);
+      <button class="alt" data-g="toSignup">처음이에요 · 회원가입</button>
+      <button class="alt" data-g="reset">비밀번호를 잊었어요</button>${docLinks}`);
   } else if (G.mode === 'signup') {
     const coach = G.role === 'coach';
+    const age = ageOf(G.f.birth);
+    const kid = !coach && age !== null && age < 14;
     gate(`${brand}<p>${coach ? '학생은 가입할 때 선생님 이름을 적어요. 이름을 적은 학생만 선생님 화면에 보여요.' : '내 코치 선생님 이름을 정확히 적어 주세요. 그 선생님에게만 내 기록이 보여요.'}</p>
       <label>나는</label><div class="roles"><button class="opt ${!coach ? 'on' : ''}" data-g="role" data-v="student">학생</button><button class="opt ${coach ? 'on' : ''}" data-g="role" data-v="coach">코치</button></div>
       ${field('name', '이름', 'text', coach ? '김선생' : '김민지')}
+      ${field('birth', '생년월일 6자리', 'text', '예: 031301')}
       ${coach ? field('phone', '전화번호', 'tel', '010-1234-5678') : ''}
       ${field('email', '이메일', 'email', 'you@example.com')}
-      ${field('pw', '생년월일 6자리 (비밀번호로 써요)', 'password', '예: 031301')}
+      ${field('npw', '비밀번호 (영문+숫자 8자 이상)', 'password', '')}
+      ${field('npw2', '비밀번호 한 번 더', 'password', '')}
       ${coach ? '' : field('coach', '코치 선생님 이름', 'text', '예: 김선생')}
+      ${kid ? `<div class="kid"><b>만 14세 미만이에요.</b> 법에 따라 보호자(부모님) 동의가 필요해요.${field('gphone', '보호자 연락처', 'tel', '010-0000-0000')}${chk('guard', '보호자에게 개인정보 수집·이용 동의를 받았어요')}</div>` : ''}
+      ${chk('agree', '<b>(필수)</b> 개인정보 수집·이용에 동의해요')}
       ${pickList()}
       <button class="bigbtn" data-g="signup" ${G.busy ? 'disabled' : ''}>${G.busy ? '만드는 중…' : '가입하기'}</button>${msgs()}
-      <button class="alt" data-g="toLogin">이미 계정이 있어요 · 로그인</button>`);
+      <button class="alt" data-g="toLogin">이미 계정이 있어요 · 로그인</button>${docLinks}`);
   } else if (G.mode === 'join') {
     gate(`${brand}<p>${esc(ME.profile?.name || '')} 학생, 코치 선생님 이름을 적어 주세요.</p>
       ${field('coach', '코치 선생님 이름', 'text', '예: 김선생')}
       ${pickList()}
       <button class="bigbtn" data-g="join" ${G.busy ? 'disabled' : ''}>선생님 연결하기</button>${msgs()}
       <button class="alt" data-g="logout">다른 계정으로 로그인</button>`);
+  } else if (G.mode === 'pw') {
+    gate(`${brand}<p>새 비밀번호는 영문과 숫자를 섞어 8자 이상으로 정해 주세요.</p>
+      ${field('pw', '지금 비밀번호', 'password', '')}${field('npw', '새 비밀번호', 'password', '')}${field('npw2', '새 비밀번호 한 번 더', 'password', '')}
+      <button class="bigbtn" data-g="changePw" ${G.busy ? 'disabled' : ''}>비밀번호 바꾸기</button>${msgs()}
+      <button class="alt" data-g="closePw">닫기</button>`);
   }
 }
 function keep() { document.querySelectorAll('#gate input').forEach(i => { G.f[i.id.slice(2)] = i.value; }); }
 const ERR = {
   'auth/invalid-email': '이메일 형식이 맞지 않아요.',
-  'auth/invalid-credential': '이메일이나 생년월일이 맞지 않아요.',
-  'auth/wrong-password': '이메일이나 생년월일이 맞지 않아요.',
+  'auth/invalid-credential': '이메일이나 비밀번호가 맞지 않아요.',
+  'auth/wrong-password': '이메일이나 비밀번호가 맞지 않아요.',
   'auth/user-not-found': '가입되지 않은 이메일이에요.',
   'auth/email-already-in-use': '이미 가입된 이메일이에요. 로그인해 주세요.',
-  'auth/weak-password': '생년월일 6자리를 적어 주세요.',
+  'auth/weak-password': '비밀번호를 영문+숫자 8자 이상으로 정해 주세요.',
+  'auth/requires-recent-login': '보안을 위해 다시 로그인한 뒤 바꿔 주세요.',
   'auth/network-request-failed': '인터넷 연결을 확인해 주세요.',
   'auth/too-many-requests': '시도가 너무 많아요. 잠시 뒤 다시 해 주세요.',
   'auth/operation-not-allowed': 'Firebase에서 이메일 로그인이 꺼져 있어요. 관리자에게 알려 주세요.',
@@ -199,18 +246,37 @@ document.addEventListener('click', async e => {
     case 'role': G.role = b.dataset.v; G.found = null; drawGate(); break;
     case 'logout': await signOut(auth); location.reload(); break;
     case 'login': await run(async () => {
-      if (!/^\d{6}$/.test(f.pw || '')) throw '생년월일 6자리를 숫자로 적어 주세요. (예: 031301)';
-      await signInWithEmailAndPassword(auth, (f.email || '').trim(), f.pw);
+      if (!(f.email || '').trim() || !f.pw) throw '이메일과 비밀번호를 적어 주세요.';
+      await signInWithEmailAndPassword(auth, f.email.trim(), f.pw);
+    }); break;
+    case 'reset': await run(async () => { if (!(f.email || '').trim()) throw '위에 이메일을 먼저 적어 주세요.'; await sendPasswordResetEmail(auth, f.email.trim()); G.ok = '비밀번호를 새로 정하는 메일을 보냈어요. 메일함을 확인해 주세요.'; }); break;
+    case 'tick': G[b.dataset.k] = !G[b.dataset.k]; drawGate(); break;
+    case 'doc': showDoc(b.dataset.v); break;
+    case 'toPw': G.mode = 'pw'; G.f = {}; drawGate(); break;
+    case 'closePw': gate(null); break;
+    case 'changePw': await run(async () => {
+      if (!okPw(f.npw)) throw '새 비밀번호를 영문+숫자 8자 이상으로 정해 주세요.';
+      if (f.npw !== f.npw2) throw '새 비밀번호 두 칸이 서로 달라요.';
+      const u = auth.currentUser;
+      await reauthenticateWithCredential(u, EmailAuthProvider.credential(u.email, f.pw || ''));
+      await updatePassword(u, f.npw);
+      G.f = {}; gate(null); alertOk('비밀번호를 바꿨어요.');
     }); break;
     case 'signup': await run(async () => {
       const coach = G.role === 'coach';
       if (!(f.name || '').trim()) throw '이름을 적어 주세요.';
+      const age = ageOf(f.birth);
+      if (age === null || age < 5 || age > 100) throw '생년월일 6자리를 맞게 적어 주세요. (예: 031301)';
       if (coach && digits(f.phone).length < 10) throw '전화번호를 적어 주세요.';
       if (!(f.email || '').trim()) throw '이메일을 적어 주세요.';
-      if (!/^\d{6}$/.test(f.pw || '')) throw '생년월일 6자리를 숫자로 적어 주세요. (예: 031301)';
+      if (!okPw(f.npw)) throw '비밀번호를 영문+숫자 8자 이상으로 정해 주세요.';
+      if (f.npw !== f.npw2) throw '비밀번호 두 칸이 서로 달라요.';
       if (!coach && !nameKey(f.coach)) throw '코치 선생님 이름을 적어 주세요.';
-      G.pending = { role: G.role, name: f.name.trim(), phone: digits(f.phone), coach: (f.coach || '').trim() };
-      const cred = await createUserWithEmailAndPassword(auth, f.email.trim(), f.pw);
+      const kid = !coach && age < 14;
+      if (kid && (digits(f.gphone).length < 10 || !G.guard)) throw '만 14세 미만은 보호자 연락처와 보호자 동의가 필요해요.';
+      if (!G.agree) throw '개인정보 수집·이용에 동의해 주세요.';
+      G.pending = { role: G.role, name: f.name.trim(), phone: digits(f.phone), coach: (f.coach || '').trim(), birth: f.birth, kid, gphone: kid ? digits(f.gphone) : '' };
+      const cred = await createUserWithEmailAndPassword(auth, f.email.trim(), f.npw);
       await finishProfile(cred.user.uid);
     }); break;
     case 'join': await run(async () => { if (await linkCoach(ME.uid, f.coach)) await enter(); }); break;
@@ -219,6 +285,13 @@ document.addEventListener('click', async e => {
       await updateDoc(doc(fs, 'users', ME.uid), { classId: c.id, coachName: c.name });
       ME.profile.classId = c.id; G.found = null; await enter();
     }); break;
+  }
+});
+document.addEventListener('input', e => {
+  if (e.target.id === 'g-birth' && G.mode === 'signup') {
+    const v = e.target.value.replace(/\D/g, ''); const was = G.f.birth || '';
+    G.f.birth = v;
+    if ((v.length === 6) !== (was.length === 6)) { keep(); drawGate(); const i = document.getElementById('g-birth'); i.focus(); i.setSelectionRange(v.length, v.length); }
   }
 });
 document.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.closest?.('#gate')) { e.preventDefault(); document.querySelector('#gate .bigbtn')?.click(); } });
@@ -232,7 +305,12 @@ async function finishProfile(uid) {
     await setDoc(ref, { name: p.name, nameKey: nameKey(p.name), coachUid: uid, code: p.phone.slice(-4), createdAt: Date.now() });
     classId = ref.id;
   }
-  await setDoc(doc(fs, 'users', uid), { name: p.name, role: p.role, classId, goal: 180, createdAt: Date.now(), ...(p.role === 'coach' ? { phone: p.phone } : { coachName: p.coach }) });
+  const now = Date.now();
+  await setDoc(doc(fs, 'users', uid), {
+    name: p.name, role: p.role, classId, goal: 180, createdAt: now, birth: p.birth, privacyAgreedAt: now,
+    ...(p.role === 'coach' ? { phone: p.phone } : { coachName: p.coach }),
+    ...(p.kid ? { under14: true, guardianPhone: p.gphone, guardianAgreedAt: now } : {}),
+  });
   if (p.role === 'student') {
     ME.profile = { name: p.name, role: 'student', classId: '' };
     try { await linkCoach(uid, p.coach); } catch (err) { G.mode = 'join'; G.msg = typeof err === 'string' ? err : errText(err); }
@@ -252,14 +330,23 @@ async function enter() {
   setTimeout(() => window.ODAP_PERM && window.ODAP_PERM.maybeAsk(), 400);
   if (!entered) { entered = true; readyResolve(); }
 }
+const acctLinks = '<button data-g="toPw">비밀번호 변경</button><button data-g="doc" data-v="privacy.html">개인정보처리방침</button><button data-g="doc" data-v="licenses.html">라이선스</button><button data-g="logout">로그아웃</button>';
+// 개인정보처리방침·라이선스를 앱 안 창으로 보여 준다 (웹뷰에서 페이지를 옮기면 돌아올 길이 없어서)
+function showDoc(src) {
+  let el = document.getElementById('docv');
+  if (!el) { el = document.createElement('div'); el.id = 'docv'; el.className = 'docv'; document.body.appendChild(el); }
+  el.innerHTML = `<div class="win"><div class="bar"><button class="btn line" data-g="closeDoc">닫기</button></div><iframe src="${src}" title="문서"></iframe></div>`;
+}
+document.addEventListener('click', e => { if (e.target.closest('[data-g="closeDoc"]')) document.getElementById('docv')?.remove(); });
+function alertOk(t) { const el = document.createElement('div'); el.className = 'toast'; el.textContent = t; document.body.appendChild(el); setTimeout(() => el.remove(), 2200); }
 function acctBar() {
   const head = document.querySelector('.head-in'); if (!head) return;
   let el = document.getElementById('acct');
   if (!el) { el = document.createElement('div'); el.id = 'acct'; el.className = 'acct'; head.querySelector('.head-row').after(el); }
   const p = ME.profile, c = ME.cls;
   el.innerHTML = p.role === 'coach'
-    ? `<span><b>${esc(p.name)}</b> 코치</span><span>학생이 가입할 때 <span class="code">${esc(p.name)}</span> 을(를) 적으면 연결돼요</span><button data-g="logout">로그아웃</button>`
-    : `<span><b>${esc(p.name)}</b> 학생${c ? ' · ' + esc(c.name) + ' 선생님' : ''}</span><button data-g="logout">로그아웃</button>`;
+    ? `<span><b>${esc(p.name)}</b> 코치</span><span>학생이 가입할 때 <span class="code">${esc(p.name)}</span> 을(를) 적으면 연결돼요</span>${acctLinks}`
+    : `<span><b>${esc(p.name)}</b> 학생${c ? ' · ' + esc(c.name) + ' 선생님' : ''}</span>${acctLinks}`;
 }
 
 onAuthStateChanged(auth, async user => {

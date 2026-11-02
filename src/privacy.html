@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>개인정보처리방침</title>
+<!--
+  초안이에요. 출시 전에 [대괄호] 부분을 채우고, 실제로 수집·보관하는 내용과 맞는지 전문가 검토를 받아 주세요.
+  채운 뒤에는 아래 class="draft" 안내 상자를 지우면 돼요.
+-->
+<style>
+  body { font-family: system-ui, -apple-system, 'Apple SD Gothic Neo', sans-serif; margin: 0; padding: 20px 18px 40px; color: #111114; line-height: 1.7; font-size: 14.5px; max-width: 760px; }
+  h1 { font-size: 21px; margin: 0 0 4px; }
+  h2 { font-size: 16px; margin: 28px 0 8px; padding-top: 14px; border-top: 1px solid #ddd; }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; margin: 8px 0; }
+  th, td { border: 1px solid #ccc; padding: 7px 9px; text-align: left; vertical-align: top; }
+  th { background: #eef1ff; }
+  .muted { color: #555; }
+  .fill { background: #fff2b3; padding: 0 3px; }
+  .draft { background: #fff2b3; border: 1px solid #e0c060; padding: 10px 12px; font-size: 13px; margin: 12px 0 0; }
+</style>
+</head>
+<body>
+<h1>개인정보처리방침</h1>
+<p class="muted">시행일: <span class="fill">[2026년 __월 __일]</span></p>
+<div class="draft">이 문서는 초안이에요. 노란 칸을 채우고 검토를 마친 뒤에 정식으로 사용해 주세요.</div>
+
+<p><span class="fill">[운영자 이름 또는 상호]</span>(이하 “운영자”)는 「개인정보 보호법」에 따라 오답 노트 앱·웹사이트(이하 “서비스”)를 이용하는 학생과 코치의 개인정보를 보호하고, 관련 고충을 원활하게 처리하기 위해 다음과 같이 개인정보처리방침을 둡니다.</p>
+
+<h2>1. 수집하는 개인정보와 이용 목적</h2>
+<table>
+  <tr><th>구분</th><th>항목</th><th>이용 목적</th></tr>
+  <tr><td>회원 공통 (필수)</td><td>이름, 이메일, 비밀번호, 생년월일, 회원 구분(학생/코치)</td><td>회원 식별과 로그인, 만 14세 미만 여부 확인</td></tr>
+  <tr><td>코치 (필수)</td><td>전화번호</td><td>본인 연락, 같은 이름의 코치를 구분 (학생 화면에는 뒷자리 4개만 표시)</td></tr>
+  <tr><td>학생 (필수)</td><td>코치 선생님 이름</td><td>학생과 코치 연결</td></tr>
+  <tr><td>만 14세 미만 학생 (필수)</td><td>보호자 연락처, 보호자 동의 일시</td><td>법정대리인 동의 확인</td></tr>
+  <tr><td>서비스 이용 중 생성</td><td>오답 문제 사진·메모·유형·패턴, 학습 계획, 순공 시간 기록, 다시 풀기 기록, 코치 코멘트</td><td>학습 기록 저장과 제공, 코치의 학습 관리</td></tr>
+</table>
+<p class="muted">비밀번호는 Google Firebase Authentication이 암호화해 보관하며, 운영자도 볼 수 없어요.</p>
+<p class="muted"><b>앱 잠금(접근성 기능)</b>: 순공 타이머가 켜진 동안, 지금 화면에 열린 앱의 이름(패키지명)만 확인해 오답 노트로 되돌립니다. 화면 내용은 읽지 않으며, 확인한 앱 이름과 되돌린 횟수는 기기 안에만 저장하고 서버로 보내지 않아요.</p>
+
+<h2>2. 보유 및 이용 기간</h2>
+<p>회원 탈퇴 시까지 보유하며, 탈퇴를 요청하면 지체 없이 파기합니다. 다른 법령에서 보관을 요구하는 경우에는 그 기간 동안 보관합니다.</p>
+
+<h2>3. 개인정보의 제3자 제공</h2>
+<p>운영자는 이용자의 개인정보를 제3자에게 제공하지 않습니다. 다만 서비스의 기본 기능에 따라 아래 정보가 다른 회원에게 보입니다.</p>
+<table>
+  <tr><th>받는 사람</th><th>보이는 정보</th><th>목적</th></tr>
+  <tr><td>학생이 연결한 코치</td><td>학생 이름, 오답·학습 계획·순공 기록</td><td>학습 관리, 코멘트, 학부모 리포트 작성</td></tr>
+  <tr><td>서비스에 로그인한 회원</td><td>코치 이름, 코치 전화번호 뒷자리 4개</td><td>학생이 코치를 찾아 연결</td></tr>
+</table>
+
+<h2>4. 개인정보 처리 위탁 및 국외 이전</h2>
+<table>
+  <tr><th>받는 자</th><th>위탁 업무</th><th>이전 국가·위치</th></tr>
+  <tr><td>Google LLC (Firebase Authentication, Cloud Firestore)</td><td>회원 인증, 데이터 저장</td><td>Firestore 저장 위치: <span class="fill">[서울(asia-northeast3) — Firebase 콘솔에서 확인]</span>, 인증 정보: Google의 국내외 데이터센터</td></tr>
+</table>
+<p class="muted">이전 시기와 방법: 서비스 이용 시 네트워크를 통해 수시로 전송. 연락처: <span class="fill">[Google 개인정보 문의처 링크 기재]</span></p>
+
+<h2>5. 만 14세 미만 아동의 개인정보</h2>
+<p>만 14세 미만 학생이 가입할 때는 보호자 연락처와 보호자 동의를 받습니다. 보호자는 아동의 개인정보 열람, 정정, 삭제, 처리정지를 요구할 수 있어요. <span class="fill">[보호자 동의를 실제로 확인하는 방법(예: 보호자 연락처로 문자 확인)을 정해 기재]</span></p>
+
+<h2>6. 개인정보의 파기</h2>
+<p>보유 기간이 끝나거나 처리 목적을 이루면 지체 없이 파기합니다. 전자 파일은 복구할 수 없는 방법으로 삭제합니다.</p>
+
+<h2>7. 이용자와 법정대리인의 권리</h2>
+<p>이용자(만 14세 미만은 법정대리인)는 언제든지 개인정보 열람, 정정, 삭제, 처리정지, 회원 탈퇴를 요청할 수 있어요. 아래 연락처로 요청하면 지체 없이 처리합니다.</p>
+
+<h2>8. 안전성 확보 조치</h2>
+<p>암호화된 통신(HTTPS), 비밀번호 암호화 저장, 회원별 접근 권한 규칙(학생은 자기 기록만, 코치는 연결된 학생 기록만 열람)을 적용합니다.</p>
+
+<h2>9. 개인정보 보호책임자</h2>
+<table>
+  <tr><th>성명</th><td><span class="fill">[이름]</span></td></tr>
+  <tr><th>연락처</th><td><span class="fill">[이메일 / 전화번호]</span></td></tr>
+</table>
+<p class="muted">개인정보 침해 신고·상담: 개인정보침해신고센터(privacy.kisa.or.kr, 국번 없이 118), 개인정보분쟁조정위원회(kopico.go.kr, 1833-6972)</p>
+
+<h2>10. 방침의 변경</h2>
+<p>이 방침을 바꾸면 시행 7일 전부터 서비스 안에서 알립니다.</p>
+</body>
+</html>
