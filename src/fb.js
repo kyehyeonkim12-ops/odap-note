@@ -88,6 +88,14 @@ css.textContent = `
   .gate .roles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
   .gate .roles .opt { justify-content: center; }
   .gate .roles .opt::before { display: none; }
+  .pstep { display: grid; grid-template-columns: 30px 1fr; gap: 10px; padding: 14px 0; border-top: 2px dotted var(--rule); }
+  .pstep > b { width: 28px; height: 28px; background: var(--blue); color: #fff; display: flex; align-items: center; justify-content: center; font-family: var(--px); font-weight: 400; font-size: 16px; clip-path: var(--notch); }
+  .pstep strong { display: block; font-size: 15px; margin-bottom: 3px; }
+  .pstep span { display: block; font-size: 13px; color: var(--ink-2); line-height: 1.55; margin-bottom: 8px; }
+  .pstep span b { color: var(--ink); }
+  .pstep .btn { height: 36px; font-size: 13.5px; }
+  .pstat { margin-top: 4px; padding: 10px 12px; background: #FDECEB; color: var(--err); font-size: 13px; font-weight: 700; }
+  .pstat.on { background: var(--blue-w); color: var(--blue); }
   .ab .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   .ab .st { font-size: 13px; color: var(--ink-2); }
   .ab .st b { color: var(--blue); }
@@ -238,6 +246,7 @@ async function enter() {
   if (ME.profile.role === 'coach') { if (location.hash !== '#coach') location.hash = 'coach'; }
   else if (location.hash) history.replaceState(null, '', location.pathname);
   acctBar();
+  setTimeout(() => window.ODAP_PERM && window.ODAP_PERM.maybeAsk(), 400);
   if (!entered) { entered = true; readyResolve(); }
 }
 function acctBar() {
@@ -268,6 +277,37 @@ onAuthStateChanged(auth, async user => {
 const native = Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
 const Blocker = native ? registerPlugin('AppBlocker') : null;
 const AB = { enabled: false, apps: null, picking: false, stats: 0, sel: loadSel() };
+// ---------- 처음 켤 때 접근성 권한 안내 ----------
+// 안드로이드 13부터는 스토어 밖에서 설치한 앱의 접근성 권한을 '제한된 설정'으로 막는다.
+// 그래서 ① 앱 정보 → ⋮ → 제한된 설정 허용 ② 접근성 → 오답 노트 앱 차단 켜기 순서로 안내한다.
+const PERMKEY = 'odap-perm-asked';
+function drawPerm() {
+  const el = document.getElementById('perm'); if (!el) return;
+  el.innerHTML = `<div class="win">
+    <h1 style="font-size:24px"><mark>앱 차단</mark>권한</h1>
+    <p>순공 타이머가 켜진 동안 유튜브·인스타 같은 앱을 열면 오답 노트로 돌아오게 하려면, 아래 두 가지를 한 번만 켜 주세요.</p>
+    <div class="pstep"><b>1</b><div><strong>제한된 설정 허용</strong><span>버튼을 누르면 앱 정보가 열려요. 오른쪽 위 <b>⋮</b> → <b>제한된 설정 허용</b>을 누르고 돌아오세요. 메뉴에 없으면 건너뛰어도 돼요.</span><button class="btn line" data-ab="details">앱 정보 열기</button></div></div>
+    <div class="pstep"><b>2</b><div><strong>접근성 켜기</strong><span><b>설치된 앱</b>(또는 다운로드한 앱) → <b>오답 노트 앱 차단</b> → <b>사용</b>을 켜 주세요.</span><button class="btn solid" data-ab="access">접근성 설정 열기</button></div></div>
+    <div class="pstat ${AB.enabled ? 'on' : ''}">${AB.enabled ? '권한이 켜졌어요! 이제 순공 탭에서 막을 앱을 고르면 돼요.' : '아직 권한이 꺼져 있어요.'}</div>
+    <button class="alt" data-ab="later">${AB.enabled ? '닫기' : '나중에 할게요'}</button>
+    ${AB.enabled ? '' : '<button class="alt" data-ab="never">앱 차단은 안 쓸래요 (다시 묻지 않기)</button>'}
+  </div>`;
+}
+function showPerm() {
+  if (!document.getElementById('perm')) { const el = document.createElement('div'); el.id = 'perm'; el.className = 'gate'; document.body.appendChild(el); }
+  drawPerm();
+}
+function closePerm() { document.getElementById('perm')?.remove(); rerender(); }
+window.ODAP_PERM = {
+  async maybeAsk() {
+    if (!Blocker || ME.profile?.role !== 'student') return;
+    await refreshAB();
+    if (AB.enabled) return;
+    let pref = null; try { pref = localStorage.getItem(PERMKEY); } catch (e) {}
+    if (pref === 'never') return;
+    showPerm();
+  },
+};
 function loadSel() { try { return JSON.parse(localStorage.getItem('odap-block') || '[]'); } catch (e) { return []; } }
 function saveSel() { try { localStorage.setItem('odap-block', JSON.stringify(AB.sel)); } catch (e) {} }
 function rerender() { if (typeof window.render === 'function') window.render(); }
@@ -295,7 +335,11 @@ window.ODAP_EXTRA = {
 if (Blocker) {
   document.addEventListener('click', async e => {
     const b = e.target.closest('[data-ab]'); if (!b) return;
-    if (b.dataset.ab === 'perm') { await Blocker.openSettings(); }
+    if (b.dataset.ab === 'perm') { showPerm(); }
+    if (b.dataset.ab === 'details') { await Blocker.openAppDetails(); }
+    if (b.dataset.ab === 'access') { await Blocker.openSettings(); }
+    if (b.dataset.ab === 'later') { closePerm(); }
+    if (b.dataset.ab === 'never') { try { localStorage.setItem(PERMKEY, 'never'); } catch (err) {} closePerm(); }
     if (b.dataset.ab === 'pick') {
       AB.picking = !AB.picking; rerender();
       if (AB.picking && !AB.apps) { try { AB.apps = (await Blocker.getApps()).apps.sort((x, y) => x.label.localeCompare(y.label, 'ko')); } catch (err) { AB.apps = []; } rerender(); }
@@ -303,7 +347,10 @@ if (Blocker) {
     }
     if (b.dataset.ab === 'tog') { const p = b.dataset.p; AB.sel = AB.sel.includes(p) ? AB.sel.filter(x => x !== p) : [...AB.sel, p]; saveSel(); rerender(); }
   });
-  CapApp.addListener('resume', refreshAB);
+  CapApp.addListener('resume', async () => {
+    await refreshAB();
+    if (document.getElementById('perm')) { drawPerm(); if (AB.enabled) setTimeout(closePerm, 1500); }
+  });
   refreshAB();
   // 순공 타이머 상태를 보고 차단을 켜고 끈다
   let last = null;

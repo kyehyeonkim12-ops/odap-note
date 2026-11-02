@@ -4,6 +4,7 @@ import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
+import android.net.Uri;
 import android.provider.Settings;
 import android.text.TextUtils;
 import com.getcapacitor.JSArray;
@@ -31,6 +32,15 @@ public class AppBlockerPlugin extends Plugin {
     @PluginMethod
     public void openSettings(PluginCall call) {
         Intent i = new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS);
+        i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        getContext().startActivity(i);
+        call.resolve();
+    }
+
+    /** 앱 정보 화면: 안드로이드 13+에서 '제한된 설정 허용'을 누르는 곳 */
+    @PluginMethod
+    public void openAppDetails(PluginCall call) {
+        Intent i = new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", getContext().getPackageName(), null));
         i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         getContext().startActivity(i);
         call.resolve();
