@@ -147,8 +147,9 @@ const ERR = {
   'auth/network-request-failed': '인터넷 연결을 확인해 주세요.',
   'auth/too-many-requests': '시도가 너무 많아요. 잠시 뒤 다시 해 주세요.',
   'auth/operation-not-allowed': 'Firebase에서 이메일 로그인이 꺼져 있어요. 관리자에게 알려 주세요.',
+  'auth/configuration-not-found': 'Firebase 로그인 기능이 아직 켜져 있지 않아요. (콘솔 → Authentication → 시작하기)',
 };
-const errText = e => ERR[e?.code] || (e?.code === 'permission-denied' ? '권한이 없어요. 보안 규칙을 확인해 주세요.' : '문제가 생겼어요. 잠시 뒤 다시 해 주세요.');
+const errText = e => ERR[e?.code] || (e?.code === 'permission-denied' ? '권한이 없어요. Firestore 보안 규칙을 확인해 주세요.' : `문제가 생겼어요. 잠시 뒤 다시 해 주세요.${e?.code ? ' (' + e.code + ')' : ''}`);
 const phone4 = v => String(v || '').replace(/\D/g, '');
 // 같은 뒷자리를 쓰는 코치가 여럿일 수 있어서, 찾은 코치를 모두 보여 주고 학생이 고르게 한다
 async function findCoaches(code) {
