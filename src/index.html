@@ -299,6 +299,9 @@
   .task.done .ck svg { visibility: visible; animation: pop .25s steps(3, end); }
   .task .tt { font-size: 15px; font-weight: 500; line-height: 1.4; word-break: keep-all; overflow-wrap: anywhere; }
   .task.done .tt { color: var(--ink-3); text-decoration: line-through 2px var(--blue); }
+  .task .how { font-size: 13px; color: var(--ink-2); margin-top: 3px; line-height: 1.45; word-break: keep-all; }
+  .task .how b { color: var(--blue); font-weight: 700; margin-right: 4px; }
+  .task.done .how { color: var(--ink-3); }
   .task .tm2 { display: flex; align-items: center; gap: 6px; margin-top: 4px; font-size: 12px; color: var(--ink-3); flex-wrap: wrap; }
   .stag { font-size: 11.5px; font-weight: 700; color: var(--blue); border: 1.5px solid var(--blue); padding: 0 6px; line-height: 18px; }
   .tbar2 { display: inline-block; width: 64px; height: 6px; background: var(--blue-w); vertical-align: middle; }
@@ -565,7 +568,9 @@ function patRow(o, i, opt = {}) {
   </${tag}>`;
 }
 function examText(stats) { return stats.slice(0, 10).map(o => `□ ${o.tag} (${o.n}번)${o.lesson ? ' — ' + firstLine(o.lesson) : ''}`).join('\n'); }
-const DEFAULT_GOAL = 180; // 하루 목표 순공 (분)
+const DEFAULT_GOAL = 180;
+// 계획을 '어떻게' 할지 빠르게 고르는 예시
+const HOWS = ['시간 재고 빠르게', '조건 하나하나 따져가며', '풀이 과정 다 쓰기', '틀린 것만 다시', '개념 정리 먼저']; // 하루 목표 순공 (분)
 
 // 픽셀 아이콘 (12칸 격자)
 const px = (d, vb = '0 0 12 12') => `<svg viewBox="${vb}" aria-hidden="true"><path fill="currentColor" d="${d}"/></svg>`;
@@ -602,7 +607,7 @@ const S = {
   form: blankForm(), saving: false, formMsg: '', formErr: false,
   addingStudent: false, detail: null, confirmDel: false, copied: false,
   fresh: null, tSubj: '수학', tMsg: '', tConfirm: false, tTask: '',
-  tasks: [], planDate: today(), tf: { subj: '수학', text: '', target: 0 },
+  tasks: [], planDate: today(), tf: { subj: '수학', text: '', how: '', target: 0 },
 };
 
 function blankForm() { return { date: today(), subj: '', cls: '', reason: '', other: '', file: null, preview: '', tags: [], tagIn: '', redo: false }; }
@@ -795,7 +800,7 @@ function taskRow(x, opt = {}) {
   const ro = opt.coach;
   return `<div class="task ${x.done ? 'done' : ''} ${running && !opt.mini ? 'run' : ''}">
     <button class="ck" ${ro ? 'disabled' : `data-done="${esc(x.id)}"`} role="checkbox" aria-checked="${!!x.done}" aria-label="${esc(x.text)} 완료">${ICON.save}</button>
-    <div><div class="tt">${esc(x.text)}</div>
+    <div><div class="tt">${esc(x.text)}</div>${x.how ? `<div class="how"><b>어떻게</b> ${esc(x.how)}</div>` : ''}
       <div class="tm2"><span class="stag">${esc(x.subj)}</span>${x.target ? `<span class="tbar2"><i style="width:${Math.min(100, pure / 60 / x.target * 100)}%"></i></span>${hhmm(pure)} / ${dur(x.target * 60)}` : pure >= 60 ? `순공 ${hhmm(pure)}` : ''}${running ? ' · <b style="color:var(--blue)">타이머 켜짐</b>' : ''}</div></div>
     ${opt.mini || ro ? '' : `<div class="ta">${isToday && !x.done ? `<button class="icon-btn go" data-tgo="${esc(x.id)}" aria-label="이 할 일로 순공 시작">${ICON.play}</button>` : ''}<button class="icon-btn rm" data-trm="${esc(x.id)}" aria-label="삭제">${ICON.x}</button></div>`}
   </div>`;
@@ -824,7 +829,9 @@ function planView() {
     <p class="lead-sub">${!l.length ? '무엇을 공부할지 먼저 적어 두세요.' : d === l.length ? '계획한 공부를 모두 끝냈어요.' : `남은 할 일 ${l.length - d}개 · ▶를 누르면 그 할 일로 순공 타이머가 켜져요.`}</p>`;
   const form = `<div class="addin">
       <div class="opts" role="radiogroup" aria-label="과목">${SUBJ.map(x => `<button type="button" role="radio" aria-checked="${tf.subj === x}" class="opt ${tf.subj === x ? 'on' : ''}" data-tfsubj="${x}">${x}</button>`).join('')}</div>
-      <div class="trow"><input class="tin" id="tIn" type="text" maxlength="60" placeholder="예: 미적분 기출 20문제" value="${esc(tf.text)}" aria-label="할 일"><button class="btn solid" data-act="addTask">${ICON.plus}추가</button></div>
+      <div class="trow"><input class="tin" id="tIn" type="text" maxlength="60" placeholder="무엇을: 예) 미적분 40문제 풀이" value="${esc(tf.text)}" aria-label="무엇을 공부할지"></div>
+      <div class="trow"><input class="tin" id="tHow" type="text" maxlength="60" placeholder="어떻게: 예) 50분 안에 빠르게" value="${esc(tf.how)}" aria-label="어떻게 공부할지"><button class="btn solid" data-act="addTask">${ICON.plus}추가</button></div>
+      <div class="tgt">${HOWS.map(h => `<button class="chip ${tf.how === h ? 'on' : ''}" data-tfhow="${esc(h)}">${esc(h)}</button>`).join('')}</div>
       <div class="tgt">목표 시간 ${[0, 30, 60, 90, 120].map(m => `<button class="chip ${tf.target === m ? 'on' : ''}" data-tftgt="${m}">${m ? dur(m * 60) : '없음'}</button>`).join('')}<button class="chip" data-act="closeAdd" style="margin-left:auto">닫기</button></div>
     </div>`;
   const list = `${left.length ? `<div class="carry"><span>지난 계획 중 못 끝낸 일 <b>${left.length}개</b></span><button class="btn solid" data-act="carry">오늘로 가져오기</button></div>` : ''}
@@ -839,7 +846,9 @@ function planView() {
 function bindPlan() {
   const i = document.getElementById('tIn');
   i.oninput = e => S.tf.text = e.target.value;
-  i.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); addTask(); } };
+  i.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); document.getElementById('tHow')?.focus(); } };
+  const h = document.getElementById('tHow');
+  if (h) { h.oninput = e => S.tf.how = e.target.value; h.onkeydown = e => { if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); addTask(); } }; }
 }
 
 function miniStudy() {
@@ -1171,6 +1180,7 @@ document.addEventListener('click', async e => {
   if (d.tsubj) { S.tSubj = d.tsubj; S.tTask = ''; render(); return; }
   if (d.ttask !== undefined) { S.tTask = d.ttask; const k = S.tasks.find(x => x.id === d.ttask); if (k) S.tSubj = k.subj; render(); return; }
   if (d.tfsubj) { S.tf.subj = d.tfsubj; render(); return; }
+  if (d.tfhow !== undefined) { S.tf.how = S.tf.how === d.tfhow ? '' : d.tfhow; render(); document.getElementById('tHow')?.focus(); return; }
   if (d.tftgt !== undefined) { S.tf.target = +d.tftgt; render(); return; }
   if (d.pday !== undefined) { S.planDate = +d.pday === 0 ? today() : addDays(S.planDate, +d.pday); render(); return; }
   if (d.done) { await toggleTask(d.done); return; }
@@ -1253,8 +1263,9 @@ async function addTask() {
   const text = (document.getElementById('tIn')?.value || S.tf.text).trim();
   if (!text) { document.getElementById('tIn')?.focus(); return; }
   try {
-    await S.db.collection('tasks').doc().set({ sid: S.sid, date: S.planDate, subj: S.tf.subj, text, target: S.tf.target, done: false, createdAt: Date.now() });
-    S.tf.text = ''; render(); document.getElementById('tIn')?.focus();
+    const how = (document.getElementById('tHow')?.value || S.tf.how).trim();
+    await S.db.collection('tasks').doc().set({ sid: S.sid, date: S.planDate, subj: S.tf.subj, text, how, target: S.tf.target, done: false, createdAt: Date.now() });
+    S.tf.text = ''; S.tf.how = ''; render(); document.getElementById('tIn')?.focus();
   } catch (err) { setNote(writeErr(err)); }
 }
 async function toggleTask(id) {
@@ -1268,7 +1279,7 @@ async function carryOver() {
   const t = today();
   try {
     for (const k of leftover(S.sid)) {
-      await S.db.collection('tasks').doc().set({ sid: k.sid, date: t, subj: k.subj, text: k.text, target: k.target || 0, done: false, from: k.date, createdAt: Date.now() });
+      await S.db.collection('tasks').doc().set({ sid: k.sid, date: t, subj: k.subj, text: k.text, how: k.how || '', target: k.target || 0, done: false, from: k.date, createdAt: Date.now() });
       await S.db.doc('tasks/' + k.id).update({ movedTo: t });
     }
   } catch (err) { setNote(writeErr(err)); }

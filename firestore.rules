@@ -14,7 +14,7 @@ service cloud.firestore {
     function validNew() { return own(request.resource.data) && request.resource.data.classId == myClassId(); }
     function sameOwner() { return request.resource.data.sid == resource.data.sid && request.resource.data.classId == resource.data.classId; }
 
-    // 코치 연결 문서: 학생이 전화번호 뒷자리(code)로 코치를 찾아야 해서 로그인한 사람은 읽을 수 있다.
+    // 코치 연결 문서(이름·전화 뒷자리만): 학생이 코치 이름으로 찾아야 해서 로그인한 사람은 읽을 수 있다.
     match /classes/{cid} {
       allow read: if signedIn();
       allow create: if signedIn() && request.resource.data.coachUid == request.auth.uid;

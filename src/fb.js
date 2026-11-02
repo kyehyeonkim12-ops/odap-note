@@ -109,52 +109,72 @@ function gate(html) {
   el.innerHTML = `<div class="win">${html}</div>`;
 }
 const brand = '<h1><mark>오답</mark>노트</h1>';
-function field(id, label, type = 'text', ph = '') {
-  const num = id === 'phone4';
-  return `<label for="g-${id}">${label}</label><input class="tin" id="g-${id}" type="${num ? 'text' : type}" ${num ? 'inputmode="numeric" maxlength="4" pattern="[0-9]*"' : ''} placeholder="${ph}" value="${esc(G.f[id] || '')}" autocomplete="${type === 'password' ? 'current-password' : id === 'email' ? 'email' : 'off'}">`;
+function field(id, label, type = 'text', ph = '', extra = '') {
+  const birth = id === 'pw', tel = id === 'phone';
+  const attrs = birth ? 'inputmode="numeric" maxlength="6" pattern="[0-9]*" autocomplete="current-password"'
+    : tel ? 'inputmode="tel" maxlength="13" autocomplete="tel"'
+    : `autocomplete="${id === 'email' ? 'email' : 'off'}"`;
+  return `<label for="g-${id}">${label}</label><input class="tin" id="g-${id}" type="${birth ? 'password' : type}" ${attrs} placeholder="${ph}" value="${esc(G.f[id] || '')}">${extra}`;
 }
 function msgs() { return (G.msg ? `<div class="err" role="alert">${esc(G.msg)}</div>` : '') + (G.ok ? `<div class="ok" role="status">${esc(G.ok)}</div>` : ''); }
+const pickList = () => G.found && G.found.length > 1
+  ? `<label>같은 이름의 선생님이 여러 명이에요. 내 선생님을 골라 주세요</label><div class="roles" style="grid-template-columns:1fr">${G.found.map(c => `<button class="opt" data-g="pick" data-id="${esc(c.id)}">${esc(c.name)} 선생님 · 전화 뒷자리 ${esc(c.code || '----')}</button>`).join('')}</div>` : '';
 function drawGate() {
   if (G.mode === 'login') {
     gate(`${brand}<p>반복되는 발상 놓침·실수를 모아 보는 공부 노트</p>
-      ${field('email', '이메일', 'email', 'you@example.com')}${field('pw', '비밀번호', 'password')}
+      ${field('email', '이메일', 'email', 'you@example.com')}${field('pw', '생년월일 6자리', 'password', '예: 031301')}
       <button class="bigbtn" data-g="login" ${G.busy ? 'disabled' : ''}>${G.busy ? '확인 중…' : '로그인'}</button>${msgs()}
-      <button class="alt" data-g="toSignup">처음이에요 · 회원가입</button>
-      <button class="alt" data-g="reset">비밀번호를 잊었어요</button>`);
+      <button class="alt" data-g="toSignup">처음이에요 · 회원가입</button>`);
   } else if (G.mode === 'signup') {
-    gate(`${brand}<p>${G.role === 'student' ? '가입한 뒤 코치 선생님 전화번호 뒷자리로 선생님을 찾아요.' : '학생들은 선생님 전화번호 뒷자리 4개로 선생님을 찾아 들어와요.'}</p>
-      <label>나는</label><div class="roles"><button class="opt ${G.role === 'student' ? 'on' : ''}" data-g="role" data-v="student">학생</button><button class="opt ${G.role === 'coach' ? 'on' : ''}" data-g="role" data-v="coach">코치</button></div>
-      ${field('name', '이름', 'text', '김민지')}${field('email', '이메일', 'email', 'you@example.com')}${field('pw', '비밀번호 (6자 이상)', 'password')}
-      ${G.role === 'coach' ? field('phone4', '내 전화번호 뒷자리 4개', 'text', '예: 1234') : ''}
+    const coach = G.role === 'coach';
+    gate(`${brand}<p>${coach ? '학생은 가입할 때 선생님 이름을 적어요. 이름을 적은 학생만 선생님 화면에 보여요.' : '내 코치 선생님 이름을 정확히 적어 주세요. 그 선생님에게만 내 기록이 보여요.'}</p>
+      <label>나는</label><div class="roles"><button class="opt ${!coach ? 'on' : ''}" data-g="role" data-v="student">학생</button><button class="opt ${coach ? 'on' : ''}" data-g="role" data-v="coach">코치</button></div>
+      ${field('name', '이름', 'text', coach ? '김선생' : '김민지')}
+      ${coach ? field('phone', '전화번호', 'tel', '010-1234-5678') : ''}
+      ${field('email', '이메일', 'email', 'you@example.com')}
+      ${field('pw', '생년월일 6자리 (비밀번호로 써요)', 'password', '예: 031301')}
+      ${coach ? '' : field('coach', '코치 선생님 이름', 'text', '예: 김선생')}
+      ${pickList()}
       <button class="bigbtn" data-g="signup" ${G.busy ? 'disabled' : ''}>${G.busy ? '만드는 중…' : '가입하기'}</button>${msgs()}
       <button class="alt" data-g="toLogin">이미 계정이 있어요 · 로그인</button>`);
   } else if (G.mode === 'join') {
-    gate(`${brand}<p>${esc(ME.profile?.name || '')} 학생, 코치 선생님 전화번호 뒷자리 4개를 넣어 주세요.</p>
-      ${field('phone4', '선생님 전화번호 뒷자리', 'text', '예: 1234')}
-      <button class="bigbtn" data-g="find" ${G.busy ? 'disabled' : ''}>선생님 찾기</button>
-      ${G.found ? (G.found.length ? `<label>이 선생님이 맞나요? 눌러서 들어가세요</label><div class="roles" style="grid-template-columns:1fr">${G.found.map(c => `<button class="opt" data-g="pick" data-id="${esc(c.id)}">${esc(c.name)} 선생님</button>`).join('')}</div>` : '') : ''}${msgs()}
+    gate(`${brand}<p>${esc(ME.profile?.name || '')} 학생, 코치 선생님 이름을 적어 주세요.</p>
+      ${field('coach', '코치 선생님 이름', 'text', '예: 김선생')}
+      ${pickList()}
+      <button class="bigbtn" data-g="join" ${G.busy ? 'disabled' : ''}>선생님 연결하기</button>${msgs()}
       <button class="alt" data-g="logout">다른 계정으로 로그인</button>`);
   }
 }
 function keep() { document.querySelectorAll('#gate input').forEach(i => { G.f[i.id.slice(2)] = i.value; }); }
 const ERR = {
   'auth/invalid-email': '이메일 형식이 맞지 않아요.',
-  'auth/invalid-credential': '이메일이나 비밀번호가 맞지 않아요.',
-  'auth/wrong-password': '이메일이나 비밀번호가 맞지 않아요.',
+  'auth/invalid-credential': '이메일이나 생년월일이 맞지 않아요.',
+  'auth/wrong-password': '이메일이나 생년월일이 맞지 않아요.',
   'auth/user-not-found': '가입되지 않은 이메일이에요.',
   'auth/email-already-in-use': '이미 가입된 이메일이에요. 로그인해 주세요.',
-  'auth/weak-password': '비밀번호는 6자 이상으로 해 주세요.',
+  'auth/weak-password': '생년월일 6자리를 적어 주세요.',
   'auth/network-request-failed': '인터넷 연결을 확인해 주세요.',
   'auth/too-many-requests': '시도가 너무 많아요. 잠시 뒤 다시 해 주세요.',
   'auth/operation-not-allowed': 'Firebase에서 이메일 로그인이 꺼져 있어요. 관리자에게 알려 주세요.',
   'auth/configuration-not-found': 'Firebase 로그인 기능이 아직 켜져 있지 않아요. (콘솔 → Authentication → 시작하기)',
 };
 const errText = e => ERR[e?.code] || (e?.code === 'permission-denied' ? '권한이 없어요. Firestore 보안 규칙을 확인해 주세요.' : `문제가 생겼어요. 잠시 뒤 다시 해 주세요.${e?.code ? ' (' + e.code + ')' : ''}`);
-const phone4 = v => String(v || '').replace(/\D/g, '');
-// 같은 뒷자리를 쓰는 코치가 여럿일 수 있어서, 찾은 코치를 모두 보여 주고 학생이 고르게 한다
-async function findCoaches(code) {
-  const s = await getDocs(query(collection(fs, 'classes'), where('code', '==', code), limit(10)));
+const nameKey = v => String(v || '').replace(/\s+/g, '');
+const digits = v => String(v || '').replace(/\D/g, '');
+// 코치 이름(띄어쓰기 무시)으로 찾는다. 같은 이름이 여럿이면 전화 뒷자리로 구분해 고르게 한다.
+async function findCoaches(name) {
+  const s = await getDocs(query(collection(fs, 'classes'), where('nameKey', '==', nameKey(name)), limit(10)));
   return s.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+async function linkCoach(uid, name) {
+  if (!nameKey(name)) throw '코치 선생님 이름을 적어 주세요.';
+  G.found = await findCoaches(name);
+  if (!G.found.length) throw `'${name.trim()}' 선생님을 찾지 못했어요. 선생님이 먼저 가입했는지, 이름이 맞는지 확인해 주세요.`;
+  if (G.found.length > 1) return false; // 목록에서 고르게 한다
+  await updateDoc(doc(fs, 'users', uid), { classId: G.found[0].id, coachName: G.found[0].name });
+  if (ME.profile) { ME.profile.classId = G.found[0].id; }
+  G.found = null;
+  return true;
 }
 
 document.addEventListener('click', async e => {
@@ -163,28 +183,29 @@ document.addEventListener('click', async e => {
   const f = G.f;
   const run = async fn => { G.busy = true; drawGate(); try { await fn(); } catch (err) { console.error(err); G.msg = typeof err === 'string' ? err : errText(err); } G.busy = false; if (document.getElementById('gate')) drawGate(); };
   switch (b.dataset.g) {
-    case 'toSignup': G.mode = 'signup'; drawGate(); break;
+    case 'toSignup': G.mode = 'signup'; G.found = null; drawGate(); break;
     case 'toLogin': G.mode = 'login'; drawGate(); break;
-    case 'role': G.role = b.dataset.v; drawGate(); break;
+    case 'role': G.role = b.dataset.v; G.found = null; drawGate(); break;
     case 'logout': await signOut(auth); location.reload(); break;
-    case 'reset': await run(async () => { if (!f.email) throw '위에 이메일을 먼저 적어 주세요.'; await sendPasswordResetEmail(auth, f.email.trim()); G.ok = '비밀번호를 바꾸는 메일을 보냈어요.'; }); break;
-    case 'login': await run(() => signInWithEmailAndPassword(auth, (f.email || '').trim(), f.pw || '')); break;
+    case 'login': await run(async () => {
+      if (!/^\d{6}$/.test(f.pw || '')) throw '생년월일 6자리를 숫자로 적어 주세요. (예: 031301)';
+      await signInWithEmailAndPassword(auth, (f.email || '').trim(), f.pw);
+    }); break;
     case 'signup': await run(async () => {
+      const coach = G.role === 'coach';
       if (!(f.name || '').trim()) throw '이름을 적어 주세요.';
-      if (G.role === 'coach' && !/^\d{4}$/.test(phone4(f.phone4))) throw '전화번호 뒷자리 숫자 4개를 적어 주세요.';
-      G.pending = { role: G.role, name: f.name.trim(), code: phone4(f.phone4) };
-      const cred = await createUserWithEmailAndPassword(auth, f.email.trim(), f.pw || '');
+      if (coach && digits(f.phone).length < 10) throw '전화번호를 적어 주세요.';
+      if (!(f.email || '').trim()) throw '이메일을 적어 주세요.';
+      if (!/^\d{6}$/.test(f.pw || '')) throw '생년월일 6자리를 숫자로 적어 주세요. (예: 031301)';
+      if (!coach && !nameKey(f.coach)) throw '코치 선생님 이름을 적어 주세요.';
+      G.pending = { role: G.role, name: f.name.trim(), phone: digits(f.phone), coach: (f.coach || '').trim() };
+      const cred = await createUserWithEmailAndPassword(auth, f.email.trim(), f.pw);
       await finishProfile(cred.user.uid);
     }); break;
-    case 'find': await run(async () => {
-      const code = phone4(f.phone4);
-      if (!/^\d{4}$/.test(code)) throw '숫자 4개를 적어 주세요.';
-      G.found = await findCoaches(code);
-      if (!G.found.length) throw '그 번호로 가입한 선생님이 없어요. 선생님께 가입했는지 확인해 주세요.';
-    }); break;
+    case 'join': await run(async () => { if (await linkCoach(ME.uid, f.coach)) await enter(); }); break;
     case 'pick': await run(async () => {
       const c = (G.found || []).find(x => x.id === b.dataset.id); if (!c) return;
-      await updateDoc(doc(fs, 'users', ME.uid), { classId: c.id });
+      await updateDoc(doc(fs, 'users', ME.uid), { classId: c.id, coachName: c.name });
       ME.profile.classId = c.id; G.found = null; await enter();
     }); break;
   }
@@ -195,12 +216,18 @@ async function finishProfile(uid) {
   const p = G.pending; if (!p) return;
   let classId = '';
   if (p.role === 'coach') {
+    // 전화번호 전체는 본인만 보는 프로필에만 두고, 학생이 찾는 문서에는 이름과 뒷자리만 둔다
     const ref = doc(collection(fs, 'classes'));
-    await setDoc(ref, { name: p.name, coachUid: uid, code: p.code, createdAt: Date.now() });
+    await setDoc(ref, { name: p.name, nameKey: nameKey(p.name), coachUid: uid, code: p.phone.slice(-4), createdAt: Date.now() });
     classId = ref.id;
   }
-  await setDoc(doc(fs, 'users', uid), { name: p.name, role: p.role, classId, goal: 180, createdAt: Date.now() });
-  G.pending = null;
+  await setDoc(doc(fs, 'users', uid), { name: p.name, role: p.role, classId, goal: 180, createdAt: Date.now(), ...(p.role === 'coach' ? { phone: p.phone } : { coachName: p.coach }) });
+  if (p.role === 'student') {
+    ME.profile = { name: p.name, role: 'student', classId: '' };
+    try { await linkCoach(uid, p.coach); } catch (err) { G.mode = 'join'; G.msg = typeof err === 'string' ? err : errText(err); }
+    if (G.found && G.found.length > 1) G.mode = 'join';
+  }
+  G.pending = null; // 이게 풀려야 로그인 쪽이 완성된 프로필을 읽어 들어간다
 }
 
 let entered = false;
@@ -219,7 +246,7 @@ function acctBar() {
   if (!el) { el = document.createElement('div'); el.id = 'acct'; el.className = 'acct'; head.querySelector('.head-row').after(el); }
   const p = ME.profile, c = ME.cls;
   el.innerHTML = p.role === 'coach'
-    ? `<span><b>${esc(p.name)}</b> 코치</span>${c ? `<span>학생 연결 번호 <span class="code">${esc(c.code)}</span></span>` : ''}<button data-g="logout">로그아웃</button>`
+    ? `<span><b>${esc(p.name)}</b> 코치</span><span>학생이 가입할 때 <span class="code">${esc(p.name)}</span> 을(를) 적으면 연결돼요</span><button data-g="logout">로그아웃</button>`
     : `<span><b>${esc(p.name)}</b> 학생${c ? ' · ' + esc(c.name) + ' 선생님' : ''}</span><button data-g="logout">로그아웃</button>`;
 }
 
@@ -227,13 +254,13 @@ onAuthStateChanged(auth, async user => {
   if (!user) { ME.uid = null; G.mode = G.mode === 'signup' ? 'signup' : 'login'; drawGate(); return; }
   ME.uid = user.uid;
   // 가입 직후라면 프로필이 생길 때까지 잠깐 기다린다
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 40; i++) {
     const s = await getDoc(doc(fs, 'users', user.uid)).catch(() => null);
-    if (s && s.exists()) { ME.profile = s.data(); break; }
+    if (s && s.exists() && !G.pending) { ME.profile = s.data(); break; }
     if (!G.pending && i > 2) break;
     await new Promise(r => setTimeout(r, 300));
   }
-  if (!ME.profile) { G.mode = 'signup'; G.msg = '프로필을 찾지 못했어요. 이름과 역할을 다시 정해 주세요.'; drawGate(); return; }
+  if (!ME.profile || ME.profile.role === undefined) { G.mode = 'signup'; G.msg = '프로필을 찾지 못했어요. 이름과 역할을 다시 정해 주세요.'; drawGate(); return; }
   await enter();
 });
 
