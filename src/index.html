@@ -1071,7 +1071,7 @@ function renderSheet() {
 
 // ---------- 코치 화면 ----------
 function coachList() {
-  if (!S.students.length) return `<div class="empty win">${SPARK}위의 반 코드를 학생에게 알려 주세요. 학생이 가입하면 여기에 모여요.</div>`;
+  if (!S.students.length) return `<div class="empty win">${SPARK}학생에게 내 전화번호 뒷자리 4개를 알려 주세요. 학생이 그 번호로 선생님을 찾아 들어오면 여기에 모여요.</div>`;
   const wk = addDays(today(), -6);
   const dueAll = S.students.reduce((n, s) => n + dueList(s.id).length, 0);
   const rows = S.students.map(s => {
