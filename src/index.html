@@ -432,7 +432,7 @@
   .box { margin-top: 12px; padding: 0 14px 14px; }
   .box::before { margin: 0 -14px 12px; }
   .box .flab { margin-bottom: 8px; }
-  .brow { display: grid; grid-template-columns: 92px 1fr 26px; align-items: center; gap: 8px; font-size: 13px; margin: 8px 0; }
+  .brow { display: grid; grid-template-columns: minmax(92px, 128px) 1fr 26px; align-items: center; gap: 8px; font-size: 13px; margin: 8px 0; }
   .brow .n { text-align: right; font-family: var(--px);  font-weight: 700; font-size: 11px; }
   .btrack { height: 12px; background: var(--blue-w); }
   .bfill { height: 100%; background: repeating-linear-gradient(90deg, var(--blue) 0 8px, transparent 8px 10px); }
@@ -528,22 +528,80 @@
 <script src="fb.js"></script>
 <script>
 const SUBJ = ['국어', '수학', '영어', '탐구', '기타'];
-const CLS = [
-  { k: '발상 놓침', n: 1, d: '풀이 아이디어·접근법이 떠오르지 않음' },
-  { k: '실수', n: 2, d: '알았는데 계산·조건·읽기에서 놓침' },
-  { k: '개념 부족', n: 3, d: '개념·공식을 몰랐거나 정확히 몰랐음' },
-  { k: '헷갈림', n: 4, d: '선지나 비슷한 개념 사이에서 고민하다 틀림' },
-  { k: '시간 부족', n: 5, d: '풀 수 있었는데 시간이 모자랐음' },
-];
+// 과목마다 틀리는 이유가 다르다. 순서대로 01, 02 … 번호가 붙는다.
+const CLS_BY = {
+  '국어': [
+    { k: '지문 잘못 읽음', d: '지문 내용을 잘못 이해했거나 중요한 문장을 놓침' },
+    { k: '손가락 걸기', d: '선지를 끝까지 안 보고 앞에서 답을 골라 버림 (뒤 선지가 답이었음)' },
+    { k: '발문 실수', d: '‘적절한 것 / 적절하지 않은 것’, ‘일치 / 불일치’를 반대로 봄' },
+    { k: '선지 한 단어 놓침', d: '‘모두·항상·반드시·~만’ 같은 한 단어나 범위를 잘못 판단' },
+    { k: '보기 적용 실패', d: '<보기> 내용을 지문·선지에 제대로 연결하지 못함' },
+    { k: '근거 없이 고름', d: '지문에서 근거를 확인하지 않고 느낌으로 고름' },
+    { k: '문법·어휘 개념', d: '문법 개념이나 어휘 뜻을 몰랐음' },
+    { k: '시간 부족', d: '풀 수 있었는데 시간이 모자랐음' },
+  ],
+  '수학': [
+    { k: '발상 놓침', d: '풀이 아이디어(보조선·식 변형·치환)가 떠오르지 않음' },
+    { k: '계산 실수', d: '부호·분수·전개 같은 계산에서 틀림' },
+    { k: '조건 놓침', d: '문제의 조건(범위·정수·끝 조건)을 빠뜨리거나 잘못 읽음' },
+    { k: '경우 빠뜨림', d: '경우를 나눠야 했는데 일부를 빠뜨림' },
+    { k: '개념·공식 부족', d: '개념·공식을 몰랐거나 정확히 몰랐음' },
+    { k: '시간 부족', d: '풀 수 있었는데 시간이 모자랐음' },
+  ],
+  '영어': [
+    { k: '어휘 몰라서', d: '핵심 단어·숙어 뜻을 몰랐음' },
+    { k: '구문 해석 실패', d: '문장 구조를 잘못 잡아 해석이 틀림' },
+    { k: '흐름 파악 실패', d: '순서·삽입·빈칸에서 글의 논리 흐름을 놓침' },
+    { k: '손가락 걸기', d: '선지를 끝까지 안 보고 앞에서 답을 골라 버림' },
+    { k: '발문 실수', d: '‘일치 / 불일치’, ‘적절한 것 / 아닌 것’을 반대로 봄' },
+    { k: '시간 부족', d: '풀 수 있었는데 시간이 모자랐음' },
+  ],
+  '탐구': [
+    { k: '개념 부족', d: '개념을 몰랐거나 정확히 몰랐음' },
+    { k: '자료 해석 실수', d: '표·그래프·그림을 잘못 읽음 (축·단위·범례)' },
+    { k: '조건 놓침', d: '문제나 보기의 조건을 빠뜨림' },
+    { k: '헷갈림', d: '비슷한 개념·용어를 혼동함' },
+    { k: '계산 실수', d: '계산 과정에서 틀림' },
+    { k: '시간 부족', d: '풀 수 있었는데 시간이 모자랐음' },
+  ],
+  '기타': [
+    { k: '발상 놓침', d: '풀이 아이디어·접근법이 떠오르지 않음' },
+    { k: '실수', d: '알았는데 계산·조건·읽기에서 놓침' },
+    { k: '개념 부족', d: '개념·공식을 몰랐거나 정확히 몰랐음' },
+    { k: '헷갈림', d: '선지나 비슷한 개념 사이에서 고민하다 틀림' },
+    { k: '시간 부족', d: '풀 수 있었는데 시간이 모자랐음' },
+  ],
+};
+for (const l of Object.values(CLS_BY)) l.forEach((c, i) => { c.n = i + 1; });
+function clsFor(subj) { return CLS_BY[subj] || CLS_BY['기타']; }
+// 예전 기록과 과목 없는 화면(전체 막대 등)에서 쓰는 전체 목록
+const CLS = [...new Map(Object.values(CLS_BY).flat().map(c => [c.k, c])).values()];
 const ALIAS = { '모름': '개념 부족', '확신 없음': '헷갈림' }; // 예전 분류 이름
 // 처음 쓸 때 보여 줄 패턴 예시 (학생이 쓴 패턴이 쌓이면 그걸 먼저 보여 줌)
 const STARTER = {
-  '발상 놓침': ['보조선 발상', '식 세우기', '그래프로 바꿔 보기', '경우 나누기', '거꾸로 생각하기'],
-  '실수': ['부호 실수', '계산 실수', '조건 빠뜨림', '문제 잘못 읽음', '범위·단위 확인 안 함', '마킹 실수'],
+  '지문 잘못 읽음': ['문단 요지 놓침', '지시어 잘못 연결', '인과 관계 반대로 읽음'],
+  '손가락 걸기': ['3번까지만 보고 고름', '답 같아서 바로 고름'],
+  '발문 실수': ['적절하지 않은 것 놓침', '일치·불일치 반대로'],
+  '선지 한 단어 놓침': ['‘모두’ 놓침', '‘~만’ 놓침', '범위 확대 해석'],
+  '보기 적용 실패': ['보기 조건 하나 빠뜨림', '보기와 지문 연결 못 함'],
+  '근거 없이 고름': ['근거 문장 표시 안 함', '느낌으로 고름'],
+  '문법·어휘 개념': ['음운 변동', '품사 구분', '어휘 뜻 모름'],
+  '발상 놓침': ['보조선 발상', '식 세우기', '그래프로 바꿔 보기', '치환', '거꾸로 생각하기'],
+  '계산 실수': ['부호 실수', '분수 계산', '전개 실수'],
+  '조건 놓침': ['범위 조건', '정수 조건', '문제 끝 조건'],
+  '경우 빠뜨림': ['경계값 경우', '0일 때', '같은 값일 때'],
+  '개념·공식 부족': ['공식 기억 안 남', '정의 헷갈림'],
+  '어휘 몰라서': ['핵심 단어 모름', '다의어', '숙어'],
+  '구문 해석 실패': ['관계사절', '분사구문', '도치·생략'],
+  '흐름 파악 실패': ['연결어 놓침', '지시어 연결', '주제문 못 찾음'],
+  '자료 해석 실수': ['축·단위 놓침', '표 읽기 실수', '그래프 추세 오해'],
+  '실수': ['부호 실수', '계산 실수', '조건 빠뜨림', '문제 잘못 읽음', '마킹 실수'],
   '개념 부족': ['공식 기억 안 남', '정의 헷갈림', '예외 경우 모름'],
-  '헷갈림': ['선지 끝까지 안 읽음', '비슷한 개념 혼동', '근거 없이 고름'],
+  '헷갈림': ['비슷한 개념 혼동', '근거 없이 고름'],
   '시간 부족': ['앞 문제에 시간 씀', '검산 못 함', '계산이 느림'],
 };
+// 기록에 실제로 나온 유형을 많은 순으로 (막대·리포트용)
+function typeKeys(list) { const m = {}; list.forEach(x => { const t = typeOf(x); if (t) m[t] = (m[t] || 0) + 1; }); return Object.keys(m).sort((a, b) => m[b] - m[a]); }
 function typeOf(x) { return ALIAS[x.cls] || x.cls; }
 function firstLine(t) { const l = String(t || '').split('\n')[0].trim(); return l.length > 70 ? l.slice(0, 68) + '…' : l; }
 function tagStats(list) {
@@ -622,9 +680,9 @@ function hhmm(sec) { const m = Math.floor(sec / 60); return Math.floor(m / 60) +
 function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
 function photoSrc(p) { if (!p) return ''; if (p.id && /^[A-Za-z0-9_-]+$/.test(p.id)) return '/_blob/' + p.id; if (typeof p.data === 'string' && p.data.startsWith('data:image/')) return p.data; return ''; }
 function bgImg(p) { const s = photoSrc(p); return s ? `background-image:url('${s}')` : ''; }
-function clsOf(k) { k = ALIAS[k] || k; return CLS.find(c => c.k === k) || { k, n: '·' }; }
+function clsOf(k, subj) { k = ALIAS[k] || k; return (subj && clsFor(subj).find(c => c.k === k)) || CLS.find(c => c.k === k) || { k, n: '·' }; }
 function bub(n, on, cls = '') { return `<span class="bub ${on ? 'on' : ''} ${cls}" aria-hidden="true">${n}</span>`; }
-function clsTag(k, sm) { const c = clsOf(k); return `<span class="ctag">${bub(c.n, true, sm ? 'sm' : '')}${esc(c.k)}</span>`; }
+function clsTag(k, sm, subj) { const c = clsOf(k, subj); return `<span class="ctag">${bub(c.n, true, sm ? 'sm' : '')}${esc(c.k)}</span>`; }
 function student(id) { return S.students.find(x => x.id === id); }
 function studentName(id) { const s = student(id); return s ? s.name : '(삭제된 학생)'; }
 function goalOf(id) { const g = student(id)?.goal; return Number.isFinite(g) && g > 0 ? g : DEFAULT_GOAL; }
@@ -875,7 +933,7 @@ function homeView() {
         <button class="ph" data-detail="${esc(x.id)}" style="${bgImg(x.photo)}" aria-label="${esc(x.subj)} 문제 자세히 보기"></button>
         <div>
           <div class="top"><span class="subj">${esc(x.subj)}</span><span class="when">${fmtShort(x.date)} 올림</span></div>
-          <div class="meta">${clsTag(x.cls, true)}${(x.tags || []).length ? `<span class="gtags">#${(x.tags || []).map(esc).join(' #')}</span>` : ''}</div>
+          <div class="meta">${clsTag(x.cls, true, x.subj)}${(x.tags || []).length ? `<span class="gtags">#${(x.tags || []).map(esc).join(' #')}</span>` : ''}</div>
           ${slots(x)}
           <div class="acts"><button class="btn solid" data-review="${esc(x.id)}" data-ok="1">${ICON.ok}맞음</button><button class="btn line" data-review="${esc(x.id)}" data-ok="0">${ICON.no}틀림</button></div>
         </div></article>`).join('')}` : '';
@@ -885,8 +943,7 @@ function homeView() {
     <div class="h"><h2>이번 주 오답</h2><span class="aside">최근 7일</span></div>
     <div class="sheet-grid">
       <div class="cell"><span class="k">올린 문제</span><span class="v">${thisWeek.length}</span></div>
-      <div class="cell"><span class="k">발상 놓침</span><span class="v hot">${thisWeek.filter(x => typeOf(x) === '발상 놓침').length}</span></div>
-      <div class="cell"><span class="k">실수</span><span class="v hot">${thisWeek.filter(x => typeOf(x) === '실수').length}</span></div>
+      ${(() => { const k = typeKeys(thisWeek).slice(0, 2); while (k.length < 2) k.push(''); return k.map(t => `<div class="cell"><span class="k">${t ? esc(t) : '—'}</span><span class="v hot">${t ? thisWeek.filter(x => typeOf(x) === t).length : 0}</span></div>`).join(''); })()}
       <div class="cell"><span class="k">다시 풀기</span><span class="v">${redoLeft}</span></div>
     </div>`;
   return `<div class="cols"><section>${pats}${queue}</section><aside class="side">${side}</aside></div>`;
@@ -956,7 +1013,8 @@ function uploadView() {
       <div class="frow"><span class="flab">날짜</span><input type="date" class="date" id="fDate" value="${esc(F.date)}" aria-label="날짜"></div>
       <div class="frow"><span class="flab">과목</span><div class="opts" role="radiogroup" aria-label="과목">${SUBJ.map(s => `<button type="button" role="radio" aria-checked="${F.subj === s}" class="opt ${F.subj === s ? 'on' : ''}" data-subj="${s}">${s}</button>`).join('')}</div></div>
       <div class="frow"><span class="flab">왜 틀렸나요 <small>하나만 고르기</small></span>
-        <div class="marks" role="radiogroup" aria-label="분류">${CLS.map(c => `<button type="button" role="radio" aria-checked="${F.cls === c.k}" class="mrow ${F.cls === c.k ? 'on' : ''} ${fr === 'cls:' + c.k ? 'fresh' : ''}" data-cls="${c.k}"><span class="no">0${c.n}</span><span><span class="t">${c.k}</span><span class="d">${c.d}</span></span></button>`).join('')}</div></div>
+        ${F.subj ? '' : '<p class="muted" style="margin:0 0 6px">과목을 먼저 고르면 그 과목에 맞는 이유가 나와요.</p>'}
+        <div class="marks" role="radiogroup" aria-label="분류">${(F.subj ? clsFor(F.subj) : []).map(c => `<button type="button" role="radio" aria-checked="${F.cls === c.k}" class="mrow ${F.cls === c.k ? 'on' : ''} ${fr === 'cls:' + c.k ? 'fresh' : ''}" data-cls="${c.k}"><span class="no">${String(c.n).padStart(2, '0')}</span><span><span class="t">${c.k}</span><span class="d">${c.d}</span></span></button>`).join('')}</div></div>
       <div class="frow"><span class="flab">어떤 패턴이었나요 <small>최대 3개 · 같은 이름으로 모아야 반복이 보여요</small></span>${tagPicker()}</div>
       <div class="frow"><label class="flab" for="fReason">무엇을 놓쳤나 / 다음엔 이렇게</label>
         <textarea id="fReason" placeholder="예: 조건 (나)를 그래프에 표시하지 않고 풀었음. 다음엔 조건마다 그림에 먼저 표시하기.">${esc(F.reason)}</textarea></div>
@@ -1003,8 +1061,10 @@ function bindForm() {
 function filterRows() {
   const subj = ['전체', ...SUBJ].map(v => `<button class="chip ${S.f.subj === v ? 'on' : ''}" data-fsubj="${v}">${v}</button>`).join('');
   const tagRow = S.f.tag ? `<div class="chiprow" style="margin-top:8px"><button class="tg on" data-ftagclear="1">#${esc(S.f.tag)} ${ICON.x}</button></div>` : '';
-  const cls = ['전체', ...CLS.map(c => c.k)].map(v => {
-    const c = CLS.find(x => x.k === v);
+  const mine = S.entries.filter(x => x.sid === S.sid);
+  const types = S.f.subj !== '전체' ? clsFor(S.f.subj).map(c => c.k) : typeKeys(mine);
+  const cls = ['전체', ...types].map(v => {
+    const c = v === '전체' ? null : clsOf(v, S.f.subj !== '전체' ? S.f.subj : null);
     return `<button class="chip ${S.f.cls === v ? 'on' : ''}" data-fcls="${v}">${c ? bub(c.n, true, 'sm') : ''}${v}</button>`;
   }).join('');
   return `<div class="chiprow">${subj}</div><div class="chiprow" style="margin-top:8px">${cls}</div>${tagRow}`;
@@ -1017,7 +1077,7 @@ function gridOf(list) {
   for (const x of list) { const g = groups[groups.length - 1]; if (g && g.date === x.date) g.items.push(x); else groups.push({ date: x.date, items: [x] }); }
   return groups.map(g => `<div class="day">${fmt(g.date)}<span>${g.items.length}문제</span></div><div class="grid">${g.items.map(x => `<button class="gcard" data-detail="${esc(x.id)}">
       <div class="ph" style="${bgImg(x.photo)}">${x.graduated ? stamp() : ''}</div>
-      <div class="cap">${bub(clsOf(x.cls).n, true, 'sm')}${esc(x.subj)} <span class="cl">${esc(clsOf(x.cls).k)}</span></div>${(x.tags || []).length ? `<div class="gtags">#${x.tags.map(esc).join(' #')}</div>` : ''}</button>`).join('')}</div>`).join('');
+      <div class="cap">${bub(clsOf(x.cls, x.subj).n, true, 'sm')}${esc(x.subj)} <span class="cl">${esc(clsOf(x.cls, x.subj).k)}</span></div>${(x.tags || []).length ? `<div class="gtags">#${x.tags.map(esc).join(' #')}</div>` : ''}</button>`).join('')}</div>`).join('');
 }
 
 function listView() {
@@ -1040,7 +1100,7 @@ function patternView(sid, coach) {
     ${stats.length ? `<div class="plist win">${stats.map((o, i) => patRow(o, i, { static: coach })).join('')}</div>` : `<button class="empty win act" data-tab="upload">${SPARK}아직 패턴이 붙은 오답이 없어요.<span class="cta">${ICON.plus}오답 올리기</span></button>`}
     ${untagged ? `<p class="muted" style="margin-top:10px">패턴을 안 고른 오답 ${untagged}개 · 기록에서 열어 패턴을 붙이면 여기에 합쳐져요.</p>` : ''}`;
   const side = `<div class="h" style="margin-top:0"><h2>유형별</h2><span class="aside">${list.length}문제</span></div>
-    <div class="box win" style="margin-top:0">${bars(CLS.map(c => c.k), list, typeOf, false, k => `<span class="ctag">${bub(clsOf(k).n, true, 'sm')}${k}</span>`)}</div>
+    <div class="box win" style="margin-top:0">${(typeKeys(list).length ? bars(typeKeys(list).slice(0, 8), list, typeOf, false, k => `<span class="ctag">${esc(k)}</span>`) : '<p class="muted" style="margin:4px 0">아직 기록이 없어요.</p>')}</div>
     <div class="h"><h2>과목별</h2></div>
     <div class="box win" style="margin-top:0">${bars(SUBJ, list, 'subj', true)}</div>
     <div class="h"><h2>시험 전 체크리스트</h2><span class="aside">시험 직전에 읽기</span></div>
@@ -1058,7 +1118,7 @@ function renderSheet() {
   const src = photoSrc(x.photo);
   root.innerHTML = `<div class="sheet-bg" data-close="1"><div class="sheet win" role="dialog" aria-modal="true" aria-label="${esc(x.subj)} 오답">
     ${src ? `<div class="shotwrap"><img class="shot" src="${src}" alt="${esc(x.subj)} 문제 사진">${x.graduated ? stamp() : ''}</div>` : ''}
-    <div class="smeta"><span class="subj">${esc(x.subj)} ${clsTag(x.cls)}</span><span class="muted">${fmt(x.date)}</span></div>
+    <div class="smeta"><span class="subj">${esc(x.subj)} ${clsTag(x.cls, false, x.subj)}</span><span class="muted">${fmt(x.date)}</span></div>
     ${coach ? ((x.tags || []).length ? `<div class="tgs" style="margin-top:12px">${x.tags.map(t => `<span class="tg">#${esc(t)}</span>`).join('')}</div>` : '')
       : `<div class="tgs" style="margin-top:12px">${(x.tags || []).map(t => `<button class="tg" data-ptag="${esc(t)}">#${esc(t)}</button><button class="tg sug" data-etagrm="${esc(t)}" aria-label="${esc(t)} 패턴 빼기">${ICON.x}</button>`).join('')}</div>
          ${(x.tags || []).length < 3 ? `<div class="trow"><input class="tin" id="eTag" type="text" maxlength="20" placeholder="${(x.tags || []).length ? '패턴 더 붙이기' : '패턴 붙이기 (예: 부호 실수)'}" aria-label="패턴 붙이기" list="tagList"><button class="btn line" data-act="etagadd">${ICON.plus}붙이기</button></div>
@@ -1114,7 +1174,7 @@ function periodLabel() { return S.period === 'week' ? '최근 7일' : S.period =
 
 function reportText(sid, list, ses, tks = []) {
   const bySubj = SUBJ.map(k => [k, list.filter(x => x.subj === k).length]).filter(v => v[1]);
-  const byCls = CLS.map(c => [c.k, list.filter(x => typeOf(x) === c.k).length]).filter(v => v[1]);
+  const byCls = typeKeys(list).map(k => [k, list.filter(x => typeOf(x) === k).length]);
   const grad = list.filter(x => x.graduated).length;
   const redo = list.filter(x => x.nextDue || x.graduated).length;
   const pats = tagStats(list).slice(0, 3);
@@ -1155,7 +1215,7 @@ function coachDetail(sid) {
       <div class="box win"><div class="flab">최근 7일 순공 <small>목표 ${dur(goalOf(sid) * 60)}</small></div>${weekChart(sid)}</div>
       <div class="h"><h2>반복 패턴</h2><span class="aside">${periodLabel()}</span></div>
       ${tagStats(list).length ? `<div class="plist win">${tagStats(list).slice(0, 6).map((o, i) => patRow(o, i, { static: true })).join('')}</div>` : '<div class="empty win" style="padding-bottom:16px">패턴이 붙은 오답이 없어요.</div>'}
-      <div class="box win"><div class="flab">유형별</div>${bars(CLS.map(c => c.k), list, typeOf, false, k => `<span class="ctag">${bub(clsOf(k).n, true, 'sm')}${k}</span>`)}</div>
+      <div class="box win"><div class="flab">유형별</div>${(typeKeys(list).length ? bars(typeKeys(list).slice(0, 8), list, typeOf, false, k => `<span class="ctag">${esc(k)}</span>`) : '<p class="muted" style="margin:4px 0">아직 기록이 없어요.</p>')}</div>
       <div class="box win"><div class="flab">과목</div>${bars(SUBJ, list, 'subj', true)}</div>
     </section><aside class="side">
       <div class="box win"><label class="flab" for="reportBox">학부모 리포트 초안</label>
@@ -1175,7 +1235,7 @@ document.addEventListener('click', async e => {
   if (d.close) { if (e.target === t || t.tagName === 'BUTTON') { S.detail = null; S.confirmDel = false; render(); } return; }
   if (d.mode) return;
   if (d.tab) { if (d.lmode) S.listMode = d.lmode; S.tab = d.tab; S.formMsg = ''; S.tMsg = ''; window.scrollTo(0, 0); render(); return; }
-  if (d.subj) { S.form.subj = d.subj; S.formMsg = ''; render(); return; }
+  if (d.subj) { if (S.form.cls && !clsFor(d.subj).some(c => c.k === S.form.cls)) S.form.cls = ''; S.form.subj = d.subj; S.formMsg = ''; render(); return; }
   if (d.cls) { S.form.cls = d.cls; S.formMsg = ''; flash('cls:' + d.cls); return; }
   if (d.tsubj) { S.tSubj = d.tsubj; S.tTask = ''; render(); return; }
   if (d.ttask !== undefined) { S.tTask = d.ttask; const k = S.tasks.find(x => x.id === d.ttask); if (k) S.tSubj = k.subj; render(); return; }
@@ -1187,7 +1247,7 @@ document.addEventListener('click', async e => {
   if (d.trm) { await removeTask(d.trm); return; }
   if (d.tgo) { const k = S.tasks.find(x => x.id === d.tgo); if (!k) return; S.tab = 'study'; window.scrollTo(0, 0); if (T) { S.tMsg = '이미 켜진 타이머가 있어요. 먼저 끝내고 시작해 주세요.'; render(); return; } startTimer(k.id); return; }
   if (d.goal) { await setGoal(+d.goal); return; }
-  if (d.fsubj) { S.f.subj = d.fsubj; render(); return; }
+  if (d.fsubj) { if (d.fsubj !== '전체' && S.f.cls !== '전체' && !clsFor(d.fsubj).some(c => c.k === S.f.cls)) S.f.cls = '전체'; S.f.subj = d.fsubj; render(); return; }
   if (d.fcls) { S.f.cls = d.fcls; render(); return; }
   if (d.ftagclear) { S.f.tag = ''; render(); return; }
   if (d.lmode && !d.tab) { S.listMode = d.lmode; render(); return; }
